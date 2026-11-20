@@ -43,7 +43,7 @@
       );
       transform-origin: top center;
       will-change: transform;
-      animation: shutterCycle52 5.2s cubic-bezier(0.34, 1.15, 0.64, 1) forwards;
+      animation: shutterCycle52 3.2s cubic-bezier(0.34, 1.15, 0.64, 1) forwards;
     }
     @keyframes shutterCycle52 {
       0%   { transform: translateY(0%); }
@@ -529,7 +529,7 @@
       const status = document.getElementById('splash-status-label');
       if (interior) interior.style.opacity = '0';
       if (status) status.textContent = 'Garage pronto!';
-    }, 4850);
+    }, 2900);
 
     function dismissSplash() {
       const splash = document.getElementById('garage-splash-screen');
@@ -537,7 +537,7 @@
       splash.classList.add('splash-fade-out');
       setTimeout(() => { splash.style.display = 'none'; }, 520);
     }
-    setTimeout(dismissSplash, 5350);
+    setTimeout(dismissSplash, 3450);
 
     // Safe Storage
     const memoryFallback = {};
@@ -1174,8 +1174,8 @@ Link diretto: ${shareUrl}`).then(() => {
 
     function matchHiddenArchiveFromOcr(rawText) {
       const upper = (rawText || '').toUpperCase();
-      const sizeMatch = upper.match(/(\d+(?:[.,]\d+)?\s*[xX×]\s*\d+(?:[.,]\d+)?(?:\s*MM)?|[mM]\d+(?:[xX]\d+)?)/);
-      const qtyMatch = upper.match(/(\d{1,4})\s*(?:PZ|PEZZI|PCS)/);
+      const sizeMatch = upper.match(/\b(\d+(?:[.,]\d+)?\s*[xX×]\s*\d+(?:[.,]\d+)?(?:\s*MM)?|[mM]\d+(?:[xX]\d+)?)\b/);
+      const qtyMatch = upper.match(/\b(\d{1,4})\s*(?:PZ|PEZZI|PCS)\b/);
       const extractedSize = sizeMatch ? sizeMatch[1].replace(/\s+/g, '') : '';
       const extractedQty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
 
