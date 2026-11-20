@@ -15,14 +15,6 @@
 
 ---
 
-## 🚀 Pubblicazione su GitHub Pages
-
-1. Carica tutti i file del repository nella cartella principale (`root`).
-2. Vai su **Settings → Pages**.
-3. Sotto **Build and deployment**, seleziona **Deploy from a branch**, scegli il branch `main` e la cartella `/ (root)`, quindi clicca **Save**.
-4. Dopo circa 1 minuto l'app sarà attiva all'indirizzo `https://<tuo-utente>.github.io/<nome-repository>/`.
-
----
 
 ## 🔒 Privacy
 
