@@ -1,16 +1,29 @@
-# GarageScan — Inventario Attrezzi, Viti & Ferramenta
+# 🔧 GarageScan — Inventario Attrezzi, Viti & Ferramenta
 
-Web App PWA installabile gratuitamente su **GitHub Pages** (`https://<tuo-utente>.github.io/<nome-repository>/`).
+**GarageScan** è una Progressive Web App (PWA) leggera, gratuita e utilizzabile anche offline, progettata per tenere sotto controllo attrezzi elettrici, utensili manuali, viteria, tasselli e materiali da bricolage direttamente dallo smartphone.
 
-## Caratteristiche Principali
-- **Animazione Saracinesca Garage (~5,2s):** Apertura graduale con saracinesca opaca, esposizione della parete attrezzi vettoriale e chiusura fluida.
-- **Archivio Silenzioso da 1.163 Voci DIY:** Lavora in background per suggerire voci mentre digiti e precompilare nome, misura, categoria e illustrazione vettoriale quando fotografi un'etichetta o una scatola.
-- **4 Schede Pulite:** *Il Mio Garage*, *Scatta / Aggiungi* (Fotocamera + OCR + ricerca rapida), *Da Comprare* (con Modalità Negozio) e *Impostazioni*.
-- **Sincronizzazione P2P Codice Garage / QR:** Condividi l'inventario su più dispositivi senza registrazione né server proprietari.
-- **Installabile su Android & iOS + Funzionamento Offline (Service Worker) + Backup JSON/CSV.**
+---
 
-## Come pubblicare su GitHub Pages
-1. Crea un nuovo repository pubblico su GitHub (es. `garagescan`).
-2. Carica tutti i file contenuti in questo pacchetto (`index.html`, `manifest.json`, `sw.js`, `icon.svg`, `.nojekyll`, `README.md`) nella cartella principale (`root`) del repository.
-3. Vai su **Settings → Pages**, seleziona **Deploy from a branch** → branch `main` e cartella `/ (root)`, quindi clicca **Save**.
-4. Dopo circa 1 minuto l'app sarà online all'indirizzo `https://<tuo-utente>.github.io/garagescan/`.
+## ✨ Funzionalità Principali
+
+- **📸 Acquisizione da Fotocamera & OCR:** Scatta una foto a una scatola di viti o all'etichetta di un utensile per estrarre automaticamente nome e misure, scegliendo se mostrare la foto reale o un'icona vettoriale dedicata.
+- **🧠 Archivio Silenzioso da 1.160+ Voci DIY:** Un database interno lavorato in background suggerisce i prodotti mentre digiti e precompila i dettagli tecnici senza appesantire l'interfaccia.
+- **🗂️ Organizzazione per Zone del Garage:** Filtra rapidamente tra *Cassetto Viti*, *Banco Lavoro*, *Parete Attrezzi*, *Valigette* e *Scaffale*, con avvisi automatici per le scorte in esaurimento.
+- **🛒 Lista "Da Comprare" & Modalità Negozio:** Aggiungi con un tocco gli articoli terminati alla lista della spesa per la ferramenta e spuntali comodamente mentre fai acquisti.
+- **🔄 Sincronizzazione P2P con Codice Garage / QR:** Condividi l'inventario in tempo reale su più telefoni o tablet senza registrazione e senza server proprietari.
+- **📱 Installabile & Offline-First:** Funziona a schermo intero su Android e iOS come app nativa tramite Service Worker, con esportazione e ripristino backup in **JSON** e **CSV**.
+
+---
+
+## 🚀 Pubblicazione su GitHub Pages
+
+1. Carica tutti i file del repository nella cartella principale (`root`).
+2. Vai su **Settings → Pages**.
+3. Sotto **Build and deployment**, seleziona **Deploy from a branch**, scegli il branch `main` e la cartella `/ (root)`, quindi clicca **Save**.
+4. Dopo circa 1 minuto l'app sarà attiva all'indirizzo `https://<tuo-utente>.github.io/<nome-repository>/`.
+
+---
+
+## 🔒 Privacy
+
+Nessun dato viene inviato a server proprietari né associato ad account personali: l'inventario risiede localmente sul dispositivo e viene sincronizzato solo in forma peer-to-peer se attivi un Codice Garage condiviso.
