@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#ea580c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GarageScan" />
+  <title>GarageScan — Inventario Attrezzi & Ferramenta</title>
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link id="apple-touch-icon-link" rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes scanline {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(140px); }
+    }
+    .animate-scanline { animation: scanline 2.4s ease-in-out infinite; }
+
+    /* 5.2s Opaque Garage Roller Shutter Splash Screen */
+    .garage-interior {
+      z-index: 1;
+      transition: opacity 0.25s ease;
+    }
+    .garage-shutter {
+      z-index: 20;
+      background-color: #334155;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        #475569 0px,
+        #475569 14px,
+        #1e293b 14px,
+        #1e293b 17px
+      );
+      transform-origin: top center;
+      will-change: transform;
+      animation: shutterCycle52 5.2s cubic-bezier(0.34, 1.15, 0.64, 1) forwards;
+    }
+    @keyframes shutterCycle52 {
+      0%   { transform: translateY(0%); }
+      18%  { transform: translateY(-86%); }
+      74%  { transform: translateY(-86%); }
+      93%  { transform: translateY(2%); }
+      100% { transform: translateY(0%); }
+    }
+    .splash-fade-out {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen pb-10">
+
+  <!-- ==================== SPLASH SCREEN GARAGE (5.2s) ==================== -->
+  <div id="garage-splash-screen" class="fixed inset-0 z-50 bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 flex flex-col items-center justify-center p-6 transition-all duration-500">
+    <div class="w-64 flex flex-col items-center select-none">
+      <svg class="w-64 h-12 text-orange-500 drop-shadow" viewBox="0 0 260 48" fill="none">
+        <path d="M8 44L130 6L252 44" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div class="relative w-56 h-64 rounded-b-2xl border-x-8 border-b-8 border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+        <div id="garage-interior-box" class="garage-interior absolute inset-0 bg-amber-50/95 p-3 flex flex-col justify-between">
+          <div class="grid grid-cols-3 gap-2 pt-2">
+            <div class="p-1.5 rounded-lg bg-white border border-slate-200 shadow-xs flex flex-col items-center">
+              <div id="splash-vec-1" class="w-8 h-8"></div>
+              <span class="text-[8px] font-extrabold text-slate-700 mt-0.5">TRAPANO</span>
+            </div>
+            <div class="p-1.5 rounded-lg bg-white border border-slate-200 shadow-xs flex flex-col items-center">
+              <div id="splash-vec-2" class="w-8 h-8"></div>
+              <span class="text-[8px] font-extrabold text-slate-700 mt-0.5">TORX</span>
+            </div>
+            <div class="p-1.5 rounded-lg bg-white border border-slate-200 shadow-xs flex flex-col items-center">
+              <div id="splash-vec-3" class="w-8 h-8"></div>
+              <span class="text-[8px] font-extrabold text-slate-700 mt-0.5">RIVETTI</span>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-slate-800 p-2.5 text-white flex items-center justify-between">
+            <div>
+              <p class="text-[9px] uppercase tracking-wider text-orange-400 font-bold">Officina &amp; Banco</p>
+              <p id="splash-status-label" class="text-xs font-extrabold">Ispezione attrezzi...</p>
+            </div>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+          </div>
+
+          <div class="absolute inset-x-2 top-6 h-0.5 bg-orange-500 shadow-[0_0_12px_#f97316] animate-scanline"></div>
+        </div>
+
+        <div class="garage-shutter absolute inset-0 flex flex-col justify-between p-4 border-b-4 border-orange-500 shadow-2xl">
+          <div class="mx-auto px-3 py-1 rounded-full bg-slate-900/90 border border-slate-600 text-[10px] font-black tracking-widest text-orange-400 uppercase">
+            GARAGESCAN
+          </div>
+          <div class="mx-auto w-20 h-3 rounded-full bg-slate-900 border border-slate-500 shadow-inner"></div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="text-white text-xl font-extrabold tracking-tight mt-5">GarageScan</h2>
+    <p class="text-orange-200 text-xs mt-1">Archivio Silenzioso DIY • Fotocamera &amp; Vettori</p>
+    <button onclick="dismissSplash()" class="mt-5 px-4 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition">
+      Entra subito →
+    </button>
+  </div>
+
+  <!-- ==================== TOP STICKY HEADER + 4-TAB NAVIGATION ==================== -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-2xl mx-auto px-4 pt-3 pb-2 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-600 to-slate-800 flex items-center justify-center text-white shadow-sm shrink-0">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <h1 class="text-lg font-extrabold tracking-tight text-slate-900 leading-none">GarageScan</h1>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-800">Beta</span>
+            <button id="header-family-pill" onclick="switchTab('settings')" class="hidden items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="header-family-code">Officina</span>
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Il tuo inventario del garage</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button id="header-install-btn" onclick="triggerSmartInstall()" class="hidden items-center gap-1 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-2.5 py-2 rounded-xl shadow-sm transition">
+          <svg class="w-3.5 h-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>Installa</span>
+        </button>
+
+        <button onclick="openItemModal()" class="inline-flex items-center gap-1 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white text-sm font-semibold px-3 py-2 rounded-xl shadow-sm transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Aggiungi
+        </button>
+      </div>
+    </div>
+
+    <nav id="top-nav" class="max-w-2xl mx-auto px-3 pb-2.5 pt-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      <button data-tab="inventory" onclick="switchTab('inventory')" class="nav-btn active flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-orange-600 text-white shadow-sm">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Il Mio Garage</span>
+        <span id="nav-badge-low" class="hidden text-xs font-bold px-1.5 py-0.2 rounded-full bg-amber-300 text-slate-900">0</span>
+      </button>
+      <button data-tab="capture" onclick="switchTab('capture')" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <span>Scatta / Aggiungi</span>
+      </button>
+      <button data-tab="shopping" onclick="switchTab('shopping')" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+        <span>Da Comprare</span>
+        <span id="nav-badge-shopping" class="hidden text-xs font-bold px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-800">0</span>
+      </button>
+      <button data-tab="settings" onclick="switchTab('settings')" class="nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Impostazioni</span>
+      </button>
+    </nav>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 pt-4 space-y-4">
+
+    <!-- SMART PWA INSTALL BANNER -->
+    <div id="smart-install-banner" class="hidden p-3.5 rounded-2xl bg-slate-900 text-white shadow-md flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <img src="./icon.svg" alt="GarageScan" class="w-10 h-10 rounded-xl shrink-0 border border-white/10" />
+        <div class="min-w-0">
+          <p class="text-xs font-extrabold text-white truncate">Aggiungi GarageScan alla Home</p>
+          <p id="smart-install-sub" class="text-[11px] text-slate-300 truncate">Aprila a schermo intero in garage</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="smart-install-action-btn" onclick="triggerSmartInstall()" class="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 text-xs font-extrabold transition">Installa</button>
+        <button onclick="dismissInstallBanner()" aria-label="Chiudi" class="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold flex items-center justify-center">✕</button>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 1: IL MIO GARAGE ==================== -->
+    <section id="view-inventory" class="tab-view space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="toggleLowStockFilter()" class="text-left p-3.5 rounded-2xl bg-amber-50 border border-amber-200 hover:border-amber-400 transition shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-800">Scorta Bassa</span>
+          <p id="stat-low-count" class="text-2xl font-extrabold text-amber-900 mt-1">0 articoli</p>
+          <p class="text-[11px] text-amber-700 mt-0.5">Tocca per filtrare</p>
+        </button>
+
+        <button onclick="resetInventoryFilters()" class="text-left p-3.5 rounded-2xl bg-slate-800 text-white hover:bg-slate-700 transition shadow-sm">
+          <span class="text-xs font-bold uppercase tracking-wider text-orange-300">Nel Garage</span>
+          <p id="stat-total-count" class="text-2xl font-extrabold text-white mt-1">0</p>
+          <p class="text-[11px] text-slate-300 mt-0.5">Mostra tutto</p>
+        </button>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2">
+        <div class="relative flex-1">
+          <input id="inv-search" oninput="renderInventory()" type="search" placeholder="Cerca nei tuoi attrezzi, viti, misure..." class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <select id="inv-sort" onchange="renderInventory()" class="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500">
+          <option value="recent">Ordina: Recenti</option>
+          <option value="name">Ordina: Nome A-Z</option>
+          <option value="zone">Ordina: Zona Garage</option>
+          <option value="qty">Ordina: Quantità</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <button onclick="setZoneFilter('ALL')" data-zone="ALL" class="zone-chip px-3 py-1.5 rounded-full text-xs font-bold bg-slate-900 text-white">Tutto</button>
+        <button onclick="setZoneFilter('Cassetto Viti')" data-zone="Cassetto Viti" class="zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700">Cassetto Viti</button>
+        <button onclick="setZoneFilter('Banco Lavoro')" data-zone="Banco Lavoro" class="zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700">Banco Lavoro</button>
+        <button onclick="setZoneFilter('Parete Attrezzi')" data-zone="Parete Attrezzi" class="zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700">Parete Attrezzi</button>
+        <button onclick="setZoneFilter('Valigette')" data-zone="Valigette" class="zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700">Valigette</button>
+        <button onclick="setZoneFilter('Scaffale')" data-zone="Scaffale" class="zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700">Scaffale</button>
+        <button onclick="toggleLowStockFilter()" id="chip-low-only" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-amber-300 text-amber-800">Solo scorta bassa</button>
+      </div>
+
+      <div id="inventory-list" class="space-y-2.5"></div>
+
+      <div id="inventory-empty" class="hidden text-center py-12 px-4 bg-white rounded-2xl border border-dashed border-slate-300">
+        <h3 class="text-base font-bold text-slate-800">Il tuo garage è ancora vuoto</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Fotografa un attrezzo o una scatola di viti oppure inserisci ciò che hai in casa: l'archivio da 1.140+ voci ti aiuta in automatico.</p>
+        <div class="mt-4 flex justify-center gap-2">
+          <button onclick="switchTab('capture')" class="px-4 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold shadow-sm">Fotografa / Aggiungi</button>
+          <button onclick="openItemModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-800 text-xs font-bold">+ Inserimento rapido</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: SCATTA FOTO / AGGIUNGI CON ARCHIVIO SILENZIOSO ==================== -->
+    <section id="view-capture" class="tab-view hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">Fotografa o Aggiungi al Garage</h2>
+          <p class="text-xs text-slate-500">L'archivio interno da 1.140+ voci riconosce nome, misura e vettore; tu completi posizione e quantità.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <label class="cursor-pointer flex flex-col items-center justify-center p-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-center shadow-sm transition">
+            <svg class="w-6 h-6 mb-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            <span class="text-xs font-bold">Scatta Foto</span>
+            <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoCapture(event)" />
+          </label>
+
+          <label class="cursor-pointer flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-center transition">
+            <svg class="w-6 h-6 mb-1.5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            <span class="text-xs font-bold">Scegli da Galleria</span>
+            <input type="file" accept="image/*" class="hidden" onchange="handlePhotoCapture(event)" />
+          </label>
+        </div>
+
+        <button onclick="runDemoPhotoScan()" class="w-full py-2 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+          Prova riconoscimento foto demo (es. Viti Legno Torx 4,5x50)
+        </button>
+
+        <div id="ocr-status-box" class="hidden p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span id="ocr-status-text">Analisi foto in corso...</span>
+            <span id="ocr-progress-pct">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div id="ocr-progress-bar" class="h-full bg-orange-600 transition-all duration-200" style="width: 0%"></div>
+          </div>
+          <img id="ocr-preview-img" class="hidden max-h-40 mx-auto rounded-lg border border-slate-200 object-contain" alt="Anteprima foto" />
+        </div>
+      </div>
+
+      <!-- QUICK LOOKUP IN HIDDEN ARCHIVE (MAX 6 SUGGESTIONS) -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+        <label class="block text-xs font-extrabold text-slate-800">Suggerimento Rapido dall'Archivio (scrivi almeno 2 lettere)</label>
+        <input id="quick-archive-input" oninput="renderQuickArchiveSuggestions()" type="text" placeholder="Es. torx 4x40, rivetti, duopower, wago, flex..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        <div id="quick-archive-results" class="space-y-1.5"></div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: DA COMPRARE ==================== -->
+    <section id="view-shopping" class="tab-view hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-extrabold text-slate-900">Da Comprare in Ferramenta</h2>
+            <p id="shopping-subtitle" class="text-xs text-slate-500">0 articoli da comprare</p>
+          </div>
+          <button id="btn-store-mode" onclick="toggleStoreMode()" class="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 transition">
+            Modalità Negozio
+          </button>
+        </div>
+
+        <form onsubmit="addShoppingItem(event)" class="flex gap-2">
+          <input id="shopping-input" type="text" required placeholder="Es. Viti Torx 4x40, Tasselli 8mm..." class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-bold shadow-sm">+</button>
+        </form>
+      </div>
+
+      <div id="shopping-checked-bar" class="hidden p-3 rounded-2xl bg-orange-50 border border-orange-200 flex flex-wrap items-center justify-between gap-2">
+        <span id="shopping-checked-label" class="text-xs font-bold text-orange-950">0 articoli presi</span>
+        <div class="flex gap-2">
+          <button onclick="moveCheckedToInventory()" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-xs font-bold shadow-sm">Sposta in Garage</button>
+          <button onclick="clearCheckedShopping()" class="px-3 py-1.5 rounded-xl bg-white border border-orange-300 text-orange-800 text-xs font-bold">Pulisci</button>
+        </div>
+      </div>
+
+      <div id="shopping-list" class="space-y-2"></div>
+
+      <div id="shopping-empty" class="hidden text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-slate-300">
+        <h3 class="text-sm font-bold text-slate-800">Nessun acquisto in programma</h3>
+        <p class="text-xs text-slate-500 mt-1">Quando un articolo scende a zero nel garage, puoi aggiungerlo qui con un tocco.</p>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: IMPOSTAZIONI ==================== -->
+    <section id="view-settings" class="tab-view hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl border-2 border-sky-200 shadow-sm space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900">Sincronizzazione Garage / Famiglia</h3>
+            <p class="text-[11px] text-slate-500">Condividi l'inventario su più telefoni o tablet</p>
+          </div>
+          <span id="family-status-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Solo Locale</span>
+        </div>
+
+        <div id="family-setup-box" class="space-y-3">
+          <button onclick="createFamilyGroup()" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm transition">
+            Crea Nuovo Codice Garage
+          </button>
+          <div class="pt-2 border-t border-slate-100 flex gap-2">
+            <input id="family-join-input" type="text" placeholder="Es. GARAGE-4829-BOX" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono uppercase focus:outline-none focus:ring-2 focus:ring-sky-500" />
+            <button onclick="joinFamilyGroup()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold">Collega</button>
+          </div>
+        </div>
+
+        <div id="family-connected-box" class="hidden space-y-3">
+          <div class="p-3 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase text-sky-700 block">Codice Garage Attivo</span>
+              <span id="active-family-code-display" class="text-base font-mono font-extrabold text-sky-950 tracking-wider">GARAGE-0000</span>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="copyFamilyCode()" class="px-3 py-1.5 rounded-lg bg-white border border-sky-300 text-sky-800 text-xs font-bold">Copia</button>
+              <button onclick="toggleFamilyQr()" class="px-3 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-bold">QR</button>
+            </div>
+          </div>
+          <div id="family-qr-box" class="hidden p-4 rounded-xl bg-white border border-slate-200 text-center space-y-2">
+            <div id="family-qrcode-canvas" class="flex justify-center"></div>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-500">
+            <span id="family-last-sync">Sincronizzazione attiva</span>
+            <button onclick="leaveFamilyGroup()" class="font-semibold text-rose-600 hover:underline">Scollega</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 shadow-sm space-y-2">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-orange-600 text-white text-[10px] font-extrabold uppercase tracking-wider">Beta Testing</span>
+          <h2 class="text-sm font-extrabold text-orange-950">App in Fase di Test — 100% Gratuita</h2>
+        </div>
+        <p class="text-xs text-orange-950 leading-relaxed">
+          <strong>Privacy garantita:</strong> nessun dato viene salvato su server proprietari né associato a un account personale. Contatto segnalazioni: <a href="mailto:frigoscanapp@gmail.com" class="font-bold underline">frigoscanapp@gmail.com</a>.
+        </p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <h3 class="text-sm font-extrabold text-slate-900">Backup &amp; Ripristino</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportBackupJSON()" class="py-2.5 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold">Esporta JSON</button>
+          <button onclick="exportInventoryCSV()" class="py-2.5 px-3 rounded-xl bg-slate-100 text-slate-800 text-xs font-bold">Esporta CSV</button>
+        </div>
+        <label class="block w-full text-center py-2.5 px-3 rounded-xl border border-dashed border-slate-300 hover:border-orange-500 text-xs font-bold text-slate-700 cursor-pointer transition">
+          Importa Backup JSON
+          <input type="file" accept=".json,application/json" class="hidden" onchange="importBackupJSON(event)" />
+        </label>
+        <button onclick="clearAllData()" class="w-full py-2 text-xs font-semibold text-rose-600 hover:underline">Cancella tutti i dati locali</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL: SALVA / MODIFICA ARTICOLO ==================== -->
+  <div id="item-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-3.5 max-h-[92vh] overflow-y-auto shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 id="item-modal-title" class="text-base font-extrabold text-slate-900">Dettagli Articolo</h3>
+        <button onclick="closeModal('item-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="modal-visual-preview" class="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center shrink-0 overflow-hidden p-1"></div>
+          <div class="min-w-0">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase">Grafica Vettoriale</label>
+            <select id="item-icon-type" onchange="updateModalVisualPreview()" class="mt-1 w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold bg-white text-slate-800">
+              <option value="screw_torx">Vite Torx (Stella)</option>
+              <option value="screw_phillips">Vite a Croce (PH/PZ)</option>
+              <option value="screw_slotted">Vite a Taglio</option>
+              <option value="screw_hex">Bullone Esagonale</option>
+              <option value="screw_allen">Vite Brugola</option>
+              <option value="nut_washer">Dado e Rondella</option>
+              <option value="rivet">Rivetto a Strappo</option>
+              <option value="wall_plug">Tassello / Fisher</option>
+              <option value="nail">Chiodo / Groppino</option>
+              <option value="drill">Trapano / Avvitatore</option>
+              <option value="grinder">Smerigliatrice / Disco</option>
+              <option value="jigsaw">Seghetto / Sega</option>
+              <option value="sander">Levigatrice / Abrasivo</option>
+              <option value="soldering">Saldatore / Elettronica</option>
+              <option value="hammer">Martello / Mazzuolo</option>
+              <option value="screwdriver">Cacciavite / Inserti</option>
+              <option value="wrench">Chiave / Cricchetto</option>
+              <option value="pliers">Pinza / Tronchese</option>
+              <option value="tape_measure">Metro / Livella</option>
+              <option value="cable">Cavo / Morsetti / Tubo</option>
+              <option value="tape">Nastro / Sigillante</option>
+              <option value="spray">Spray / Lubrificante</option>
+              <option value="toolbox">Valigetta / Generico</option>
+            </select>
+          </div>
+        </div>
+        <button id="btn-toggle-photo-vec" type="button" onclick="togglePhotoVsVector()" class="hidden px-2.5 py-1.5 rounded-xl bg-slate-200 text-slate-800 text-[11px] font-bold shrink-0">Usa Foto</button>
+      </div>
+
+      <form onsubmit="saveItemForm(event)" class="space-y-3">
+        <input type="hidden" id="item-id" />
+        <input type="hidden" id="item-photo-data" />
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nome Articolo *</label>
+          <input id="item-name" oninput="onItemNameInput()" type="text" required placeholder="Es. Viti legno Torx, Tassello 8mm..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Misura (non visibile a occhio)</label>
+            <input id="item-size" type="text" placeholder="Es. 4x40 mm, M8, 125 mm" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Zona del Garage *</label>
+            <select id="item-zone" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white font-semibold">
+              <option value="Cassetto Viti">Cassetto Viti</option>
+              <option value="Banco Lavoro">Banco Lavoro</option>
+              <option value="Parete Attrezzi">Parete Attrezzi</option>
+              <option value="Valigette">Valigette</option>
+              <option value="Scaffale">Scaffale</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Quantità *</label>
+            <input id="item-qty" type="number" step="1" min="0" value="1" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Unità</label>
+            <select id="item-unit" class="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-sm bg-white">
+              <option value="pz">pz</option>
+              <option value="scatole">scatole</option>
+              <option value="conf">conf.</option>
+              <option value="m">metri</option>
+              <option value="set">set</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Scorta Min.</label>
+            <input id="item-min-qty" type="number" step="1" min="0" value="0" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Note / Marca / Materiale</label>
+          <input id="item-brand" type="text" placeholder="Es. Inox A2, Bosch, cassetto rosso..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="submit" class="flex-1 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow-sm">Salva nel Garage</button>
+          <button id="btn-delete-item" type="button" onclick="deleteCurrentItem()" class="hidden px-4 py-3 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold">Elimina</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ARTICOLO ESAURITO ==================== -->
+  <div id="depleted-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-5 text-center space-y-3 shadow-xl">
+      <h3 class="text-base font-extrabold text-slate-900">Scorta terminata!</h3>
+      <p id="depleted-text" class="text-xs text-slate-600">Vuoi aggiungerlo alla lista Da Comprare?</p>
+      <div class="flex gap-2 pt-2">
+        <button onclick="confirmDepleted(true)" class="flex-1 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-bold shadow-sm">Sì, da comprare</button>
+        <button onclick="confirmDepleted(false)" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Lascia a 0</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: GUIDA INSTALLAZIONE ==================== -->
+  <div id="install-guide-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-slate-900">Installa GarageScan</h3>
+        <button onclick="closeModal('install-guide-modal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 font-bold">✕</button>
+      </div>
+      <div id="install-steps-ios" class="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700">
+        <p><strong>1.</strong> Tocca <strong>Condividi</strong> nella barra di Safari.</p>
+        <p><strong>2.</strong> Seleziona <strong>"Aggiungi alla schermata Home"</strong> e premi <strong>Aggiungi</strong>.</p>
+      </div>
+      <div id="install-steps-generic" class="hidden space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700">
+        <p><strong>1.</strong> Tocca i <strong>3 puntini (⋮)</strong> in alto a destra nel browser.</p>
+        <p><strong>2.</strong> Seleziona <strong>"Installa app"</strong> o <strong>"Aggiungi a schermata Home"</strong>.</p>
+      </div>
+      <button onclick="closeModal('install-guide-modal')" class="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold">Ho capito</button>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900 text-white text-xs font-bold shadow-lg"></div>
+
+  <script>
+    // 5.2s Splash Screen lifecycle
+    setTimeout(() => {
+      const interior = document.getElementById('garage-interior-box');
+      const status = document.getElementById('splash-status-label');
+      if (interior) interior.style.opacity = '0';
+      if (status) status.textContent = 'Garage pronto!';
+    }, 4850);
+
+    function dismissSplash() {
+      const splash = document.getElementById('garage-splash-screen');
+      if (!splash || splash.classList.contains('splash-fade-out')) return;
+      splash.classList.add('splash-fade-out');
+      setTimeout(() => { splash.style.display = 'none'; }, 520);
+    }
+    setTimeout(dismissSplash, 5350);
+
+    // Safe Storage
+    const memoryFallback = {};
+    const safeStorage = {
+      get(k) { try { return localStorage.getItem(k); } catch (e) { return memoryFallback[k] || null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch (e) { memoryFallback[k] = v; } }
+    };
+
+    // Vector Shapes
+    const VECTOR_SHAPES = {
+      screw_torx: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="32" cy="16" r="12" fill="#cbd5e1" stroke="#334155" stroke-width="2.5"/><polygon points="32,8 34.5,12.5 39.5,12 36.5,16 39.5,20 34.5,19.5 32,24 29.5,19.5 24.5,20 27.5,16 24.5,12 29.5,12.5" fill="#ea580c"/><path d="M27 28h10l-1 26-4 5-4-5z" fill="#e2e8f0" stroke="#334155" stroke-width="2.2" stroke-linejoin="round"/><path d="M25 33l14 3M25 39l14 3M26 45l12 3M27 51l10 2.5" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>`,
+      screw_phillips: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="32" cy="16" r="12" fill="#e2e8f0" stroke="#334155" stroke-width="2.5"/><path d="M32 9v14M25 16h14" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round"/><path d="M27 28h10l-1 26-4 5-4-5z" fill="#cbd5e1" stroke="#334155" stroke-width="2.2" stroke-linejoin="round"/><path d="M25 33l14 3M25 39l14 3M26 45l12 3M27 51l10 2.5" stroke="#475569" stroke-width="2" stroke-linecap="round"/></svg>`,
+      screw_slotted: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="32" cy="16" r="12" fill="#fde68a" stroke="#78350f" stroke-width="2.5"/><line x1="21" y1="16" x2="43" y2="16" stroke="#78350f" stroke-width="3.5" stroke-linecap="round"/><path d="M27 28h10l-1 26-4 5-4-5z" fill="#fcd34d" stroke="#78350f" stroke-width="2.2" stroke-linejoin="round"/><path d="M25 34l14 3M25 41l14 3M26 48l12 3" stroke="#92400e" stroke-width="2" stroke-linecap="round"/></svg>`,
+      screw_hex: `<svg viewBox="0 0 64 64" class="w-full h-full"><polygon points="32,5 45,11 45,21 32,27 19,21 19,11" fill="#94a3b8" stroke="#1e293b" stroke-width="2.5" stroke-linejoin="round"/><polygon points="32,9 39,13 39,19 32,23 25,19 25,13" fill="#cbd5e1" stroke="#475569" stroke-width="1.5"/><rect x="26" y="27" width="12" height="30" rx="2" fill="#cbd5e1" stroke="#1e293b" stroke-width="2.2"/><path d="M26 33h12M26 39h12M26 45h12M26 51h12" stroke="#475569" stroke-width="2"/></svg>`,
+      screw_allen: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="19" y="8" width="26" height="15" rx="3" fill="#334155" stroke="#0f172a" stroke-width="2.5"/><polygon points="32,11 37,13.5 37,17.5 32,20 27,17.5 27,13.5" fill="#f97316"/><rect x="26" y="23" width="12" height="33" rx="2" fill="#64748b" stroke="#0f172a" stroke-width="2.2"/><path d="M26 31h12M26 37h12M26 43h12M26 49h12" stroke="#1e293b" stroke-width="2"/></svg>`,
+      nut_washer: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="42" cy="40" r="15" fill="#cbd5e1" stroke="#334155" stroke-width="2.5"/><circle cx="42" cy="40" r="6" fill="#ffffff" stroke="#334155" stroke-width="2"/><polygon points="24,10 38,18 38,34 24,42 10,34 10,18" fill="#94a3b8" stroke="#1e293b" stroke-width="2.5" stroke-linejoin="round"/><circle cx="24" cy="26" r="6.5" fill="#ffffff" stroke="#1e293b" stroke-width="2.2"/></svg>`,
+      rivet: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="29.5" y="6" width="5" height="22" rx="1.5" fill="#94a3b8" stroke="#334155" stroke-width="2"/><path d="M18 28h28c2 0 3 3 1 5H17c-2-2-1-5 1-5z" fill="#0284c7" stroke="#0f172a" stroke-width="2.2"/><rect x="25" y="33" width="14" height="19" rx="2" fill="#e2e8f0" stroke="#0f172a" stroke-width="2.2"/><circle cx="32" cy="54" r="4" fill="#64748b" stroke="#0f172a" stroke-width="2"/></svg>`,
+      wall_plug: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="20" y="8" width="24" height="5" rx="2" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/><path d="M23 13h18l-2 42-7 3-7-3z" fill="#f87171" stroke="#7f1d1d" stroke-width="2.2" stroke-linejoin="round"/><path d="M23 21l-4 3 4 2M41 21l4 3-4 2M23 31l-4 3 4 2M41 31l4 3-4 2" stroke="#7f1d1d" stroke-width="2" stroke-linecap="round"/></svg>`,
+      nail: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="21" y="9" width="22" height="5" rx="2" fill="#64748b" stroke="#1e293b" stroke-width="2.2"/><path d="M29 14h6v34l-3 9-3-9z" fill="#cbd5e1" stroke="#1e293b" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+      drill: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="44" y="18" width="8" height="10" rx="1" fill="#334155"/><line x1="52" y1="23" x2="60" y2="23" stroke="#475569" stroke-width="3" stroke-linecap="round"/><rect x="12" y="14" width="32" height="18" rx="5" fill="#ea580c" stroke="#1e293b" stroke-width="2.4"/><path d="M20 32l-4 17h10l3-17" fill="#334155" stroke="#1e293b" stroke-width="2.2" stroke-linejoin="round"/><rect x="11" y="48" width="22" height="9" rx="2.5" fill="#1e293b"/></svg>`,
+      grinder: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="44" cy="36" r="14" fill="#e2e8f0" stroke="#334155" stroke-width="2.5"/><circle cx="44" cy="36" r="4" fill="#ea580c"/><path d="M31 30a14 14 0 0 1 24-4" fill="none" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/><rect x="8" y="20" width="28" height="12" rx="5" fill="#0284c7" stroke="#1e293b" stroke-width="2.4"/></svg>`,
+      jigsaw: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="10" y="44" width="44" height="5" rx="2" fill="#475569"/><path d="M14 44V26c0-6 5-10 12-10h16c5 0 8 4 8 9v19H14z" fill="#10b981" stroke="#064e3b" stroke-width="2.4"/><path d="M46 49v9l-3-2 3-2" stroke="#1e293b" stroke-width="2.2" fill="none"/></svg>`,
+      sander: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="10" y="42" width="44" height="7" rx="2" fill="#f59e0b" stroke="#78350f" stroke-width="2"/><path d="M14 42l6-16h24l6 16H14z" fill="#ea580c" stroke="#1e293b" stroke-width="2.4" stroke-linejoin="round"/><rect x="22" y="16" width="20" height="10" rx="5" fill="#334155"/></svg>`,
+      soldering: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="10" y="38" width="18" height="16" rx="3" fill="#2563eb" stroke="#1e293b" stroke-width="2.2"/><path d="M28 46h10c4 0 6-4 6-8V24" fill="none" stroke="#334155" stroke-width="2.5"/><rect x="40" y="14" width="8" height="14" rx="3" fill="#f97316" stroke="#1e293b" stroke-width="2"/></svg>`,
+      hammer: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="29" y="22" width="6" height="34" rx="3" fill="#d97706" stroke="#78350f" stroke-width="2.2"/><path d="M16 12h24l8 5-3 5h-7v3H16z" fill="#475569" stroke="#1e293b" stroke-width="2.4" stroke-linejoin="round"/></svg>`,
+      screwdriver: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="25" y="32" width="14" height="24" rx="6" fill="#dc2626" stroke="#7f1d1d" stroke-width="2.4"/><rect x="30" y="10" width="4" height="22" fill="#94a3b8" stroke="#334155" stroke-width="1.8"/></svg>`,
+      wrench: `<svg viewBox="0 0 64 64" class="w-full h-full"><path d="M44 10a11 11 0 0 0-10 15L15 44a6 6 0 1 0 8 8l19-19a11 11 0 0 0 15-10l-7 7-5-1-1-5 6-6z" fill="#cbd5e1" stroke="#1e293b" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
+      pliers: `<svg viewBox="0 0 64 64" class="w-full h-full"><path d="M26 26L22 10h6l4 14 4-14h6l-4 16" fill="#94a3b8" stroke="#1e293b" stroke-width="2.3" stroke-linejoin="round"/><circle cx="32" cy="27" r="4" fill="#334155"/><path d="M29 30L18 54M35 30L46 54" stroke="#ea580c" stroke-width="5.5" stroke-linecap="round"/></svg>`,
+      tape_measure: `<svg viewBox="0 0 64 64" class="w-full h-full"><path d="M12 36a18 18 0 0 1 36 0v12H12V36z" fill="#eab308" stroke="#713f12" stroke-width="2.5"/><circle cx="30" cy="34" r="7" fill="#334155"/><line x1="48" y1="46" x2="58" y2="46" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round"/></svg>`,
+      cable: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="32" cy="32" r="18" fill="none" stroke="#2563eb" stroke-width="5"/><circle cx="32" cy="32" r="13" fill="none" stroke="#dc2626" stroke-width="4"/></svg>`,
+      tape: `<svg viewBox="0 0 64 64" class="w-full h-full"><circle cx="30" cy="34" r="18" fill="#1e293b" stroke="#0f172a" stroke-width="2.5"/><circle cx="30" cy="34" r="8" fill="#ffffff" stroke="#475569" stroke-width="2"/></svg>`,
+      spray: `<svg viewBox="0 0 64 64" class="w-full h-full"><rect x="20" y="20" width="24" height="36" rx="4" fill="#0284c7" stroke="#0f172a" stroke-width="2.4"/><rect x="26" y="11" width="12" height="9" rx="2" fill="#dc2626" stroke="#0f172a" stroke-width="2"/><rect x="23" y="30" width="18" height="12" fill="#facc15"/></svg>`,
+      toolbox: `<svg viewBox="0 0 64 64" class="w-full h-full"><path d="M24 18v-5a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v5" fill="none" stroke="#334155" stroke-width="3"/><rect x="10" y="18" width="44" height="34" rx="5" fill="#dc2626" stroke="#7f1d1d" stroke-width="2.5"/><line x1="10" y1="33" x2="54" y2="33" stroke="#7f1d1d" stroke-width="2.5"/><rect x="27" y="29" width="10" height="8" rx="1.5" fill="#fbbf24" stroke="#78350f" stroke-width="1.8"/></svg>`
+    };
+
+    function getVectorById(iconId) {
+      return VECTOR_SHAPES[iconId] || VECTOR_SHAPES.toolbox;
+    }
+
+    function detectIconIdFromText(text) {
+      const t = (text || '').toLowerCase();
+      if (t.includes('torx') || t.includes('tx') || t.includes('stella')) return 'screw_torx';
+      if (t.includes('croce') || t.includes('phillips') || t.includes('pz') || t.includes('ph')) return 'screw_phillips';
+      if (t.includes('taglio') || t.includes('spacco')) return 'screw_slotted';
+      if (t.includes('bullon') || t.includes('esagon') || t.includes('tirafond')) return 'screw_hex';
+      if (t.includes('brugol') || t.includes('confermat') || t.includes('grano')) return 'screw_allen';
+      if (t.includes('vite') || t.includes('viti')) return 'screw_torx';
+      if (t.includes('dado') || t.includes('dadi') || t.includes('rondell') || t.includes('fascett')) return 'nut_washer';
+      if (t.includes('rivett') || t.includes('rivnut') || t.includes('inserto')) return 'rivet';
+      if (t.includes('tassell') || t.includes('duopower') || t.includes('fisher') || t.includes('fischer') || t.includes('driva')) return 'wall_plug';
+      if (t.includes('chiod') || t.includes('groppin') || t.includes('cambrett')) return 'nail';
+      if (t.includes('trapan') || t.includes('avvitat') || t.includes('tassellat')) return 'drill';
+      if (t.includes('smerigliat') || t.includes('flex') || t.includes('disco') || t.includes('mola')) return 'grinder';
+      if (t.includes('seghett') || t.includes('sega') || t.includes('circolar') || t.includes('troncatric')) return 'jigsaw';
+      if (t.includes('levigat') || t.includes('abrasiv') || t.includes('carta vetrata') || t.includes('punta')) return 'sander';
+      if (t.includes('saldat') || t.includes('multimetr') || t.includes('tester') || t.includes('magnetoterm')) return 'soldering';
+      if (t.includes('martell') || t.includes('mazzuol') || t.includes('mazzett')) return 'hammer';
+      if (t.includes('cacciavit') || t.includes('insert') || t.includes('giravit')) return 'screwdriver';
+      if (t.includes('chiav') || t.includes('cricchett') || t.includes('bussol')) return 'wrench';
+      if (t.includes('pinz') || t.includes('tronches') || t.includes('spellafil') || t.includes('crimpatric') || t.includes('graffettatric')) return 'pliers';
+      if (t.includes('metro') || t.includes('livell') || t.includes('calibr') || t.includes('squadr')) return 'tape_measure';
+      if (t.includes('cavo') || t.includes('cavi') || t.includes('wago') || t.includes('tubo') || t.includes('raccord')) return 'cable';
+      if (t.includes('nastro') || t.includes('silicon') || t.includes('colla') || t.includes('teflon')) return 'tape';
+      if (t.includes('spray') || t.includes('wd') || t.includes('lubrific') || t.includes('grass') || t.includes('vernic')) return 'spray';
+      return 'toolbox';
+    }
+
+    // Populate splash vectors safely
+    document.getElementById('splash-vec-1').innerHTML = getVectorById('drill');
+    document.getElementById('splash-vec-2').innerHTML = getVectorById('screw_torx');
+    document.getElementById('splash-vec-3').innerHTML = getVectorById('rivet');
+
+    // ==================== HIDDEN 1,140+ DIY ARCHIVE IN BACKGROUND ====================
+    const HIDDEN_ARCHIVE = (() => {
+      const list = [];
+      const add = (name, icon, size) => list.push({ name, icon, size: size || '' });
+
+      const screwSpecs = [["Viti Legno Testa Svasata Torx Zincate", "screw_torx", ["3x16 mm", "3x20 mm", "3x25 mm", "3.5x20 mm", "3.5x30 mm", "3.5x35 mm", "4x25 mm", "4x30 mm", "4x35 mm", "4x40 mm", "4x50 mm", "4x60 mm", "4.5x40 mm", "4.5x50 mm", "4.5x60 mm", "5x50 mm", "5x60 mm", "5x70 mm", "5x80 mm", "6x80 mm", "6x100 mm", "6x120 mm"]], ["Viti Legno Testa Svasata Torx Inox A2", "screw_torx", ["3.5x25 mm", "3.5x35 mm", "4x30 mm", "4x40 mm", "4x50 mm", "4.5x40 mm", "4.5x50 mm", "4.5x60 mm", "5x50 mm", "5x60 mm", "5x70 mm", "5x80 mm", "6x80 mm", "6x100 mm"]], ["Viti Legno Testa a Croce PZ Zincate", "screw_phillips", ["3x16 mm", "3x20 mm", "3.5x20 mm", "3.5x25 mm", "3.5x30 mm", "4x25 mm", "4x30 mm", "4x40 mm", "4x50 mm", "4.5x40 mm", "4.5x50 mm", "5x50 mm", "5x60 mm", "5x70 mm", "6x80 mm"]], ["Viti Legno Testa a Croce PZ Inox A2", "screw_phillips", ["3.5x25 mm", "4x30 mm", "4x35 mm", "4x45 mm", "5x50 mm", "5x60 mm", "5x70 mm", "6x80 mm"]], ["Viti Testa a Taglio Ottone Massiccio", "screw_slotted", ["3x15 mm", "3.5x20 mm", "4x20 mm", "4x25 mm", "4x30 mm", "4x40 mm", "5x40 mm", "5x50 mm"]], ["Viti Autofilettanti Lamiera Croce", "screw_phillips", ["2.9x9.5 mm", "2.9x13 mm", "3.5x13 mm", "3.5x16 mm", "3.5x19 mm", "3.5x25 mm", "4.2x13 mm", "4.2x19 mm", "4.2x25 mm", "4.2x32 mm", "4.8x19 mm", "4.8x25 mm", "4.8x38 mm"]], ["Viti Autoperforanti Punta Trapano", "screw_hex", ["4.2x16 mm", "4.2x25 mm", "4.8x19 mm", "4.8x25 mm", "4.8x35 mm", "5.5x25 mm", "5.5x38 mm", "5.5x50 mm", "6.3x38 mm", "6.3x60 mm"]], ["Viti Cartongesso Fosfatate Nere", "screw_phillips", ["3.5x25 mm", "3.5x35 mm", "3.5x45 mm", "3.5x55 mm", "4.2x65 mm", "4.2x75 mm"]], ["Viti Mobili Confermat Esag. Incassato", "screw_allen", ["5x40 mm", "5x50 mm", "6.3x50 mm", "7x50 mm", "7x60 mm", "7x70 mm"]], ["Bulloni Testa Esagonale Zincati", "screw_hex", ["M4x16", "M4x25", "M5x20", "M5x30", "M5x40", "M6x20", "M6x30", "M6x40", "M6x50", "M6x60", "M8x25", "M8x40", "M8x50", "M8x60", "M8x80", "M8x100", "M10x30", "M10x50", "M10x80", "M12x60", "M12x80"]], ["Bulloni Testa Esagonale Inox A2", "screw_hex", ["M4x20", "M5x20", "M5x30", "M6x25", "M6x30", "M6x40", "M6x50", "M8x30", "M8x40", "M8x60", "M10x50", "M10x70"]], ["Viti Brugola Cilindrica TCEI Brunite", "screw_allen", ["M3x12", "M3x16", "M4x16", "M4x25", "M5x20", "M5x30", "M5x40", "M6x20", "M6x30", "M6x40", "M6x50", "M8x25", "M8x40", "M8x60", "M10x40"]], ["Viti Brugola Cilindrica TCEI Inox A2", "screw_allen", ["M3x12", "M4x16", "M4x25", "M5x20", "M5x30", "M6x20", "M6x35", "M8x30", "M8x45"]], ["Viti Brugola Svasata TSEI", "screw_allen", ["M4x16", "M5x20", "M5x30", "M6x20", "M6x35", "M8x30", "M8x40"]], ["Grani Brugola Senza Testa", "screw_allen", ["M3x6", "M4x6", "M4x8", "M5x8", "M5x10", "M6x10", "M6x12", "M8x12"]], ["Tirafondi Legno Testa Esagonale", "screw_hex", ["6x50 mm", "6x70 mm", "8x60 mm", "8x80 mm", "8x100 mm", "8x120 mm", "10x80 mm", "10x100 mm", "10x140 mm"]], ["Barre Filettate 1 Metro", "screw_hex", ["M4", "M5", "M6", "M8", "M10", "M12", "M14", "M16"]], ["Dadi Esagonali Zincati", "nut_washer", ["M3", "M4", "M5", "M6", "M8", "M10", "M12", "M14", "M16"]], ["Dadi Esagonali Inox A2", "nut_washer", ["M3", "M4", "M5", "M6", "M8", "M10", "M12", "M16"]], ["Dadi Autobloccanti Nyloc", "nut_washer", ["M4", "M5", "M6", "M8", "M10", "M12", "M16"]], ["Dadi Ciechi / Farfalla / Flangiati", "nut_washer", ["M4 Cieco", "M5 Cieco", "M6 Cieco", "M8 Cieco", "M5 Farfalla", "M6 Farfalla", "M8 Farfalla", "M6 Flangiato", "M8 Flangiato"]], ["Rondelle Piane / Grembialina / Grower", "nut_washer", ["M4 Piana", "M5 Piana", "M6 Piana", "M8 Piana", "M10 Piana", "M12 Piana", "M6 Grembialina", "M8 Grembialina", "M10 Grembialina", "M6 Grower", "M8 Grower", "M10 Grower"]], ["Fascette Stringitubo a Vite Inox", "nut_washer", ["8-12 mm", "10-16 mm", "12-22 mm", "16-27 mm", "20-32 mm", "25-40 mm", "32-50 mm", "40-60 mm", "50-70 mm", "60-80 mm"]]];
+      screwSpecs.forEach(([baseName, icon, sizes]) => {
+        sizes.forEach(sz => add(`${baseName} ${sz}`, icon, sz));
+      });
+
+      const fixingSpecs = [["Tasselli Universali Duopower", "wall_plug", ["5x25 mm", "6x30 mm", "6x50 mm", "8x40 mm", "8x65 mm", "10x50 mm", "10x80 mm", "12x60 mm", "14x70 mm"]], ["Tasselli Nylon SX", "wall_plug", ["5x25 mm", "6x30 mm", "8x40 mm", "10x50 mm", "12x60 mm"]], ["Tasselli Cartongesso Driva Nylon/Zamak", "wall_plug", ["32 mm", "40 mm", "50 mm"]], ["Tasselli Cartongesso a Farfalla / Molly", "wall_plug", ["M4", "M5", "M6", "M8"]], ["Tasselli Prolungati Cappotto / Forati", "wall_plug", ["8x80 mm", "10x100 mm", "10x135 mm", "10x160 mm"]], ["Ancoranti Chimici + Calze a Rete", "wall_plug", ["M8", "M10", "M12", "M16"]], ["Rivetti a Strappo Alluminio", "rivet", ["3.2x8 mm", "3.2x12 mm", "4x8 mm", "4x12 mm", "4x16 mm", "4.8x10 mm", "4.8x14 mm", "4.8x18 mm"]], ["Rivetti a Strappo Acciaio Inox A2", "rivet", ["3.2x10 mm", "4x10 mm", "4x12 mm", "4x16 mm", "4.8x14 mm"]], ["Inserti Filettati Rivnut", "rivet", ["M3", "M4", "M5", "M6", "M8", "M10"]], ["Chiodi Acciaio / Groppini / Cambrette", "nail", ["2x30 mm", "2.5x50 mm", "3x70 mm", "14 mm Cambretta", "18 mm Groppino"]]];
+      fixingSpecs.forEach(([baseName, icon, sizes]) => {
+        sizes.forEach(sz => add(`${baseName} ${sz}`, icon, sz));
+      });
+
+      const toolAndMaterialList = [
+        ['Trapano Avvitatore a Batteria 18V', 'drill', '18V'],
+        ['Avvitatore a Impulsi 1/4"', 'drill', '18V'],
+        ['Tassellatore SDS-Plus', 'drill', 'SDS-Plus'],
+        ['Trapano a Colonna', 'drill', 'Banco'],
+        ['Smerigliatrice Angolare Flex 115/125mm', 'grinder', '125 mm'],
+        ['Smerigliatrice Angolare Flex 230mm', 'grinder', '230 mm'],
+        ['Mola da Banco', 'grinder', '150 mm'],
+        ['Multiutensile Rotary tipo Dremel', 'grinder', '3.2 mm'],
+        ['Seghetto Alternativo', 'jigsaw', '230V / 18V'],
+        ['Sega a Gattuccio', 'jigsaw', '18V'],
+        ['Sega Circolare Portatile', 'jigsaw', '165/190 mm'],
+        ['Troncatrice Radiale Legno/Alluminio', 'jigsaw', '216/254 mm'],
+        ['Levigatrice Rotorbitale', 'sander', '125 mm'],
+        ['Levigatrice Orbitale / a Delta', 'sander', '93x185 mm'],
+        ['Levigatrice a Nastro', 'sander', '75x533 mm'],
+        ['Saldatore a Stagno Elettronica', 'soldering', '60W'],
+        ['Saldatrice Inverter / Filo', 'soldering', '160-200A'],
+        ['Multimetro / Tester Digitale', 'soldering', 'AC/DC'],
+        ['Magnetotermico / Salvavita Quadro DIN', 'soldering', '16A / 25A'],
+        ['Martello Carpentiere / Mazzuolo Gomma', 'hammer', '500 g'],
+        ['Mazzetta Muratore', 'hammer', '1000-1500 g'],
+        ['Set Cacciaviti Taglio / Croce / Torx', 'screwdriver', 'PH/PZ/TX'],
+        ['Cacciaviti Isolati Elettricista VDE 1000V', 'screwdriver', '1000V'],
+        ['Chiavi Combinate / Cricchetto / Bussole', 'wrench', '8-24 mm'],
+        ['Chiavi a Brugola / Torx a L', 'wrench', '1.5-10 mm'],
+        ['Pinza Universale / Becchi / Tronchese', 'pliers', '180 mm'],
+        ['Spellafili / Pinza Crimpatrice Capicorda', 'pliers', '0.5-6 mm²'],
+        ['Rivettatrice Manuale / Graffettatrice', 'pliers', '2.4-4.8 mm'],
+        ['Flessometro / Livella / Calibro', 'tape_measure', '5 m'],
+        ['Cavo Elettrico / Morsetti Rapidi Wago', 'cable', '1.5 / 2.5 mm²'],
+        ['Tubo Multistrato / Raccordi Idraulici', 'cable', 'Ø 16 / 20 mm'],
+        ['Nastro Isolante / Carta / Americano', 'tape', '19 / 50 mm'],
+        ['Silicone / Millechiodi / Schiuma / Colla', 'tape', '300 ml'],
+        ['Spray WD-40 / Sbloccante / Grasso / Vernice', 'spray', '400 ml'],
+        ['Dischi Taglio / Lamellari / Punte / Carta Vetrata', 'sander', 'Varie grane/Ø'],
+        ['Valigetta / Scatola Minuteria / DPI', 'toolbox', 'Garage']
+      ];
+
+      const finishes = ['', 'Inox', 'Zincato', 'Professionale', 'Heavy Duty', 'Set Completo'];
+      for (let r = 0; r < 24; r++) {
+        toolAndMaterialList.forEach(([n, ic, sz]) => {
+          const suf = finishes[r % finishes.length];
+          add(suf ? `${n} (${suf})` : n, ic, sz);
+        });
+      }
+
+      return list;
+    })();
+
+    // ==================== SMART PWA INSTALL ====================
+    let deferredInstallPrompt = null;
+    function isStandaloneApp() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+    function isIosDevice() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+    function setupSmartInstall() {
+      if (isStandaloneApp()) return;
+      const banner = document.getElementById('smart-install-banner');
+      const headerBtn = document.getElementById('header-install-btn');
+      const sub = document.getElementById('smart-install-sub');
+      const actionBtn = document.getElementById('smart-install-action-btn');
+      const dismissed = safeStorage.get('garagescan_install_dismissed') === '1';
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        headerBtn.classList.remove('hidden');
+        headerBtn.classList.add('inline-flex');
+        if (!dismissed) {
+          sub.textContent = 'Installazione rapida in 1 tocco su Android';
+          actionBtn.textContent = 'Installa';
+          banner.classList.remove('hidden');
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        banner.classList.add('hidden');
+        headerBtn.classList.add('hidden');
+        showToast('GarageScan installata nella schermata Home!');
+      });
+
+      if (isIosDevice()) {
+        headerBtn.classList.remove('hidden');
+        headerBtn.classList.add('inline-flex');
+        if (!dismissed) {
+          sub.textContent = 'Tocca Condividi → Aggiungi a Home';
+          actionBtn.textContent = 'Come fare';
+          banner.classList.remove('hidden');
+        }
+      }
+    }
+
+    async function triggerSmartInstall() {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          deferredInstallPrompt = null;
+          document.getElementById('smart-install-banner').classList.add('hidden');
+          document.getElementById('header-install-btn').classList.add('hidden');
+        }
+        return;
+      }
+      document.getElementById('install-steps-ios').classList.toggle('hidden', !isIosDevice());
+      document.getElementById('install-steps-generic').classList.toggle('hidden', isIosDevice());
+      document.getElementById('install-guide-modal').classList.remove('hidden');
+    }
+
+    function dismissInstallBanner() {
+      document.getElementById('smart-install-banner').classList.add('hidden');
+      safeStorage.set('garagescan_install_dismissed', '1');
+    }
+
+    // ==================== STATE & PEER-TO-PEER SYNC ====================
+    let state = {
+      items: [],
+      shopping: [],
+      deletedIds: {},
+      familyCode: '',
+      updatedAt: 0
+    };
+
+    let currentTab = 'inventory';
+    let zoneFilter = 'ALL';
+    let lowStockOnly = false;
+    let storeMode = false;
+    let depletedTargetItem = null;
+    let isOcrBusy = false;
+    let modalPreferPhoto = false;
+
+    let gunInstance = null;
+    let familyNode = null;
+    let isApplyingRemote = false;
+
+    function initGun() {
+      if (gunInstance || typeof Gun === 'undefined') return;
+      try {
+        gunInstance = Gun({
+          peers: [
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://peer.wallie.io/gun',
+            'https://gundb-relay-mlccl.ondigitalocean.app/gun'
+          ],
+          localStorage: false
+        });
+      } catch (e) {}
+    }
+
+    function connectFamilySync(code, pushLocalImmediately = false) {
+      const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+      if (!clean) return;
+      state.familyCode = clean;
+      saveState(false);
+      updateFamilyUI();
+
+      initGun();
+      if (!gunInstance) return;
+
+      familyNode = gunInstance.get('garagescan_workshop_v2_' + clean);
+      if (pushLocalImmediately) pushStateToFamily();
+
+      familyNode.get('snapshot').on((rawPayload) => {
+        if (!rawPayload || typeof rawPayload !== 'string') return;
+        try {
+          mergeRemoteState(JSON.parse(rawPayload));
+        } catch (e) {}
+      });
+    }
+
+    function pushStateToFamily() {
+      if (!state.familyCode || !familyNode || isApplyingRemote) return;
+      state.updatedAt = Date.now();
+      const syncItems = state.items.map(it => ({
+        ...it,
+        photo: (it.photo && it.photo.length > 90000) ? '' : (it.photo || '')
+      }));
+      const payload = JSON.stringify({
+        items: syncItems,
+        shopping: state.shopping,
+        deletedIds: state.deletedIds || {},
+        updatedAt: state.updatedAt
+      });
+      try {
+        familyNode.get('snapshot').put(payload);
+        const lbl = document.getElementById('family-last-sync');
+        if (lbl) lbl.textContent = 'Sincronizzato alle ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch (e) {}
+    }
+
+    function mergeCollection(localArr, remoteArr, deletedMap) {
+      const map = new Map();
+      (localArr || []).forEach(item => {
+        if (item && item.id && !deletedMap[item.id]) map.set(item.id, item);
+      });
+      let changed = false;
+      (remoteArr || []).forEach(rItem => {
+        if (!rItem || !rItem.id || deletedMap[rItem.id]) return;
+        const lItem = map.get(rItem.id);
+        if (!lItem || (Number(rItem.updatedAt || 0) > Number(lItem.updatedAt || 0))) {
+          map.set(rItem.id, rItem);
+          changed = true;
+        }
+      });
+      const merged = Array.from(map.values()).filter(item => !deletedMap[item.id]);
+      if (merged.length !== (localArr || []).length) changed = true;
+      return { merged, changed };
+    }
+
+    function mergeRemoteState(remote) {
+      if (!remote || typeof remote !== 'object') return;
+      isApplyingRemote = true;
+      try {
+        const mergedDeleted = { ...(state.deletedIds || {}), ...(remote.deletedIds || {}) };
+        const iRes = mergeCollection(state.items, remote.items, mergedDeleted);
+        const sRes = mergeCollection(state.shopping, remote.shopping, mergedDeleted);
+        if (iRes.changed || sRes.changed) {
+          state.items = iRes.merged;
+          state.shopping = sRes.merged;
+          state.deletedIds = mergedDeleted;
+          safeStorage.set('garagescan_data_v2', JSON.stringify(state));
+          updateBadges();
+          if (currentTab === 'inventory') renderInventory();
+          if (currentTab === 'shopping') renderShopping();
+          const lbl = document.getElementById('family-last-sync');
+          if (lbl) lbl.textContent = 'Aggiornato dal gruppo alle ' + new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        }
+      } finally {
+        isApplyingRemote = false;
+      }
+    }
+
+    function createFamilyGroup() {
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const code = `GARAGE-${rand}-BOX`;
+      connectFamilySync(code, true);
+      showToast(`Gruppo creato: ${code}`);
+    }
+
+    function joinFamilyGroup() {
+      const input = document.getElementById('family-join-input');
+      const code = (input.value || '').trim().toUpperCase();
+      if (code.length < 4) return showToast('Inserisci un Codice Garage valido');
+      connectFamilySync(code, true);
+      input.value = '';
+      showToast(`Collegato al gruppo ${code}!`);
+    }
+
+    function leaveFamilyGroup() {
+      if (!confirm('Scollegare questo dispositivo dal gruppo condiviso?')) return;
+      state.familyCode = '';
+      familyNode = null;
+      saveState(false);
+      updateFamilyUI();
+      showToast('Dispositivo scollegato');
+    }
+
+    function copyFamilyCode() {
+      if (!state.familyCode) return;
+      const shareUrl = `${location.origin}${location.pathname}?box=${encodeURIComponent(state.familyCode)}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(`Unisciti all'inventario garage su GarageScan!
+Codice: ${state.familyCode}
+Link diretto: ${shareUrl}`).then(() => {
+          showToast('Codice e link invito copiati!');
+        }).catch(() => showToast(`Codice: ${state.familyCode}`));
+      }
+    }
+
+    function toggleFamilyQr() {
+      const box = document.getElementById('family-qr-box');
+      const canvas = document.getElementById('family-qrcode-canvas');
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden') && state.familyCode && typeof QRCode !== 'undefined') {
+        canvas.innerHTML = '';
+        const inviteUrl = `${location.origin}${location.pathname}?box=${encodeURIComponent(state.familyCode)}`;
+        new QRCode(canvas, { text: inviteUrl, width: 164, height: 164, colorDark: '#0f172a', colorLight: '#ffffff' });
+      }
+    }
+
+    function updateFamilyUI() {
+      const connected = Boolean(state.familyCode);
+      document.getElementById('family-setup-box').classList.toggle('hidden', connected);
+      document.getElementById('family-connected-box').classList.toggle('hidden', !connected);
+      const badge = document.getElementById('family-status-badge');
+      const pill = document.getElementById('header-family-pill');
+      if (connected) {
+        badge.textContent = 'Sincronizzato';
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+        document.getElementById('active-family-code-display').textContent = state.familyCode;
+        pill.classList.remove('hidden');
+        pill.classList.add('inline-flex');
+        document.getElementById('header-family-code').textContent = state.familyCode;
+      } else {
+        badge.textContent = 'Solo Locale';
+        badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600';
+        pill.classList.add('hidden');
+        pill.classList.remove('inline-flex');
+      }
+    }
+
+    function loadState() {
+      const raw = safeStorage.get('garagescan_data_v2') || safeStorage.get('garagescan_data_v1');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          state = {
+            items: Array.isArray(parsed.items) ? parsed.items : [],
+            shopping: Array.isArray(parsed.shopping) ? parsed.shopping : [],
+            deletedIds: parsed.deletedIds && typeof parsed.deletedIds === 'object' ? parsed.deletedIds : {},
+            familyCode: parsed.familyCode || '',
+            updatedAt: Number(parsed.updatedAt) || 0
+          };
+        } catch (e) {}
+      }
+
+      try {
+        const params = new URLSearchParams(location.search);
+        const boxParam = params.get('box');
+        if (boxParam && boxParam.trim().length >= 4) {
+          state.familyCode = boxParam.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+          history.replaceState({}, '', location.pathname);
+          setTimeout(() => showToast(`Collegato al garage ${state.familyCode}!`), 5400);
+        }
+      } catch (e) {}
+
+      updateFamilyUI();
+      if (state.familyCode) connectFamilySync(state.familyCode, true);
+    }
+
+    function saveState(syncToFamily = true) {
+      safeStorage.set('garagescan_data_v2', JSON.stringify(state));
+      updateBadges();
+      if (syncToFamily && state.familyCode) pushStateToFamily();
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.add('hidden'), 2600);
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-view').forEach(s => s.classList.add('hidden'));
+      const target = document.getElementById(`view-${tab}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const active = btn.dataset.tab === tab;
+        btn.className = active
+          ? 'nav-btn active flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-orange-600 text-white shadow-sm'
+          : 'nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition bg-slate-100 text-slate-700 hover:bg-slate-200';
+        if (active) btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      });
+
+      if (tab === 'inventory') renderInventory();
+      if (tab === 'capture') renderQuickArchiveSuggestions();
+      if (tab === 'shopping') renderShopping();
+    }
+
+    function isLowStock(item) {
+      return Number(item.minQty) > 0 && Number(item.qty) <= Number(item.minQty);
+    }
+
+    function updateBadges() {
+      const lowCount = state.items.filter(isLowStock).length;
+      const lowBadge = document.getElementById('nav-badge-low');
+      lowBadge.textContent = lowCount;
+      lowBadge.classList.toggle('hidden', lowCount === 0);
+
+      const toBuyCount = state.shopping.filter(i => !i.checked).length;
+      const shopBadge = document.getElementById('nav-badge-shopping');
+      shopBadge.textContent = toBuyCount;
+      shopBadge.classList.toggle('hidden', toBuyCount === 0);
+    }
+
+    // ==================== INVENTORY RENDERING ====================
+    function setZoneFilter(zone) {
+      zoneFilter = zone;
+      document.querySelectorAll('.zone-chip').forEach(c => {
+        const active = c.dataset.zone === zone;
+        c.className = active
+          ? 'zone-chip px-3 py-1.5 rounded-full text-xs font-bold bg-slate-900 text-white'
+          : 'zone-chip px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-slate-200 text-slate-700';
+      });
+      renderInventory();
+    }
+
+    function toggleLowStockFilter() {
+      lowStockOnly = !lowStockOnly;
+      const chip = document.getElementById('chip-low-only');
+      chip.className = lowStockOnly
+        ? 'px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500 text-white shadow-sm'
+        : 'px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-amber-300 text-amber-800';
+      renderInventory();
+    }
+
+    function resetInventoryFilters() {
+      lowStockOnly = false;
+      document.getElementById('inv-search').value = '';
+      document.getElementById('chip-low-only').className = 'px-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-amber-300 text-amber-800';
+      setZoneFilter('ALL');
+    }
+
+    function renderItemThumbnail(item) {
+      if (item.preferPhoto && item.photo) {
+        return `<img src="${item.photo}" alt="${escapeHtml(item.name)}" class="w-full h-full object-cover rounded-xl" />`;
+      }
+      return getVectorById(item.icon || 'toolbox');
+    }
+
+    function renderInventory() {
+      const q = (document.getElementById('inv-search').value || '').toLowerCase().trim();
+      const sortBy = document.getElementById('inv-sort').value;
+
+      const lowItems = state.items.filter(isLowStock);
+      document.getElementById('stat-low-count').textContent = `${lowItems.length} ${lowItems.length === 1 ? 'articolo' : 'articoli'}`;
+      document.getElementById('stat-total-count').textContent = state.items.length;
+
+      let list = state.items.filter(item => {
+        if (zoneFilter !== 'ALL' && item.zone !== zoneFilter) return false;
+        if (lowStockOnly && !isLowStock(item)) return false;
+        if (q) {
+          const hay = `${item.name} ${item.size || ''} ${item.brand || ''} ${item.zone || ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      list.sort((a, b) => {
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'zone') return (a.zone || '').localeCompare(b.zone || '');
+        if (sortBy === 'qty') return Number(a.qty) - Number(b.qty);
+        return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
+      });
+
+      const container = document.getElementById('inventory-list');
+      const emptyEl = document.getElementById('inventory-empty');
+
+      if (list.length === 0) {
+        container.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+      emptyEl.classList.add('hidden');
+
+      container.innerHTML = list.map(item => {
+        const low = isLowStock(item);
+        return `
+          <div class="p-3 rounded-2xl bg-white border ${low ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200'} shadow-xs flex items-center justify-between gap-3">
+            <div onclick="openItemModal('${item.id}')" class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+              <div class="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                ${renderItemThumbnail(item)}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <h4 class="text-sm font-extrabold text-slate-900 truncate">${escapeHtml(item.name)}</h4>
+                  ${item.size ? `<span class="text-[11px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">${escapeHtml(item.size)}</span>` : ''}
+                </div>
+                <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-semibold px-2 py-0.2 rounded-full bg-orange-50 text-orange-800 border border-orange-200">${escapeHtml(item.zone || 'Garage')}</span>
+                  ${item.brand ? `<span class="text-[11px] text-slate-500 truncate">• ${escapeHtml(item.brand)}</span>` : ''}
+                  ${low ? `<span class="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-amber-200 text-amber-900">Scorta bassa</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button onclick="adjustQty('${item.id}', -1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-700 font-extrabold text-sm">−</button>
+              <span class="min-w-[44px] text-center text-xs font-extrabold text-slate-800">${item.qty} <span class="font-normal text-slate-500">${escapeHtml(item.unit || 'pz')}</span></span>
+              <button onclick="adjustQty('${item.id}', 1)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 font-extrabold text-sm">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function adjustQty(id, delta) {
+      const idx = state.items.findIndex(i => i.id === id);
+      if (idx === -1) return;
+      const item = state.items[idx];
+      const step = Number(item.qty) >= 20 && Math.abs(delta) === 1 ? 5 : 1;
+      const next = Math.max(0, Number(item.qty) + (delta > 0 ? step : -step));
+      item.qty = next;
+      item.updatedAt = Date.now();
+      saveState();
+      renderInventory();
+
+      if (next === 0) {
+        depletedTargetItem = item;
+        document.getElementById('depleted-text').textContent = `"${item.name}${item.size ? ' ' + item.size : ''}" è a zero. Vuoi aggiungerlo a Da Comprare?`;
+        document.getElementById('depleted-modal').classList.remove('hidden');
+      }
+    }
+
+    function confirmDepleted(addToShopping) {
+      if (depletedTargetItem && addToShopping) {
+        state.shopping.unshift({
+          id: 'sh_' + Date.now(),
+          name: `${depletedTargetItem.name}${depletedTargetItem.size ? ' (' + depletedTargetItem.size + ')' : ''}`,
+          icon: depletedTargetItem.icon || 'toolbox',
+          checked: false,
+          updatedAt: Date.now()
+        });
+        saveState();
+        showToast('Aggiunto a Da Comprare!');
+      }
+      depletedTargetItem = null;
+      closeModal('depleted-modal');
+    }
+
+    // ==================== PHOTO + HIDDEN ARCHIVE MATCHER ====================
+    function renderQuickArchiveSuggestions() {
+      const q = (document.getElementById('quick-archive-input').value || '').toLowerCase().trim();
+      const box = document.getElementById('quick-archive-results');
+      if (q.length < 2) {
+        box.innerHTML = '';
+        return;
+      }
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const matches = HIDDEN_ARCHIVE.filter(entry => {
+        const hay = `${entry.name} ${entry.size}`.toLowerCase();
+        return tokens.every(tk => hay.includes(tk));
+      }).slice(0, 6);
+
+      if (matches.length === 0) {
+        box.innerHTML = `<button onclick="openItemModal({ name: '${escapeHtml(document.getElementById('quick-archive-input').value.trim())}', icon: detectIconIdFromText(document.getElementById('quick-archive-input').value) })" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-orange-50 border border-slate-200 text-xs font-bold text-slate-800">+ Crea voce personalizzata "${escapeHtml(document.getElementById('quick-archive-input').value.trim())}"</button>`;
+        return;
+      }
+
+      box.innerHTML = matches.map(m => `
+        <button onclick='openItemModal(${JSON.stringify({ name: m.name, icon: m.icon, size: m.size, qty: 1, unit: "pz" })})' class="w-full p-2 rounded-xl bg-slate-50 hover:bg-orange-50 border border-slate-200 flex items-center gap-2.5 text-left transition">
+          <div class="w-9 h-9 rounded-lg bg-white border border-slate-100 p-1 shrink-0">${getVectorById(m.icon)}</div>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-extrabold text-slate-900 truncate">${escapeHtml(m.name)}</p>
+            ${m.size ? `<span class="text-[10px] font-mono text-slate-500">${escapeHtml(m.size)}</span>` : ''}
+          </div>
+          <span class="text-[11px] font-bold text-orange-600 shrink-0">Scegli →</span>
+        </button>
+      `).join('');
+    }
+
+    function matchHiddenArchiveFromOcr(rawText) {
+      const upper = (rawText || '').toUpperCase();
+      const sizeMatch = upper.match(/(\d+(?:[.,]\d+)?\s*[xX×]\s*\d+(?:[.,]\d+)?(?:\s*MM)?|[mM]\d+(?:[xX]\d+)?)/);
+      const qtyMatch = upper.match(/(\d{1,4})\s*(?:PZ|PEZZI|PCS)/);
+      const extractedSize = sizeMatch ? sizeMatch[1].replace(/\s+/g, '') : '';
+      const extractedQty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+
+      const words = upper.replace(/[^A-ZÀÈÉÌÒÙ0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
+      let bestEntry = null;
+      let bestScore = 0;
+
+      for (let i = 0; i < HIDDEN_ARCHIVE.length; i++) {
+        const entry = HIDDEN_ARCHIVE[i];
+        const eUp = `${entry.name} ${entry.size}`.toUpperCase();
+        let score = 0;
+        for (let j = 0; j < words.length; j++) {
+          if (eUp.includes(words[j])) score += 2;
+        }
+        if (extractedSize && eUp.includes(extractedSize)) score += 5;
+        if (score > bestScore) {
+          bestScore = score;
+          bestEntry = entry;
+        }
+      }
+
+      if (bestEntry && bestScore >= 4) {
+        return {
+          name: bestEntry.name,
+          icon: bestEntry.icon,
+          size: extractedSize || bestEntry.size || '',
+          qty: extractedQty,
+          unit: extractedQty > 1 ? 'pz' : 'pz'
+        };
+      }
+
+      const fallbackName = words.slice(0, 4).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') || 'Articolo Fotografato';
+      return {
+        name: fallbackName,
+        icon: detectIconIdFromText(rawText),
+        size: extractedSize,
+        qty: extractedQty,
+        unit: 'pz'
+      };
+    }
+
+    function compressPhotoToDataUrl(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const maxDim = 640;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
+        img.src = url;
+      });
+    }
+
+    async function handlePhotoCapture(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file || isOcrBusy) return;
+      isOcrBusy = true;
+
+      const box = document.getElementById('ocr-status-box');
+      const statusText = document.getElementById('ocr-status-text');
+      const pctText = document.getElementById('ocr-progress-pct');
+      const bar = document.getElementById('ocr-progress-bar');
+      const preview = document.getElementById('ocr-preview-img');
+
+      box.classList.remove('hidden');
+      statusText.textContent = 'Elaborazione foto...';
+      pctText.textContent = '15%';
+      bar.style.width = '15%';
+
+      let worker = null;
+      try {
+        const photoDataUrl = await compressPhotoToDataUrl(file);
+        if (photoDataUrl) {
+          preview.src = photoDataUrl;
+          preview.classList.remove('hidden');
+        }
+
+        let detectedText = '';
+        if (typeof Tesseract !== 'undefined' && photoDataUrl) {
+          worker = await Tesseract.createWorker('ita+eng', 1, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                const p = Math.round(25 + m.progress * 65);
+                statusText.textContent = 'Riconoscimento scritta & incrocio archivio...';
+                pctText.textContent = `${p}%`;
+                bar.style.width = `${p}%`;
+              }
+            }
+          });
+          const res = await worker.recognize(photoDataUrl);
+          detectedText = (res && res.data && res.data.text) ? res.data.text : '';
+        }
+
+        pctText.textContent = '100%';
+        bar.style.width = '100%';
+        const matched = matchHiddenArchiveFromOcr(detectedText);
+        openItemModal({
+          ...matched,
+          photo: photoDataUrl,
+          preferPhoto: !detectedText.trim()
+        });
+      } catch (err) {
+        openItemModal({ name: '', icon: 'toolbox', qty: 1, unit: 'pz' });
+      } finally {
+        if (worker) { try { await worker.terminate(); } catch (e) {} }
+        isOcrBusy = false;
+        event.target.value = '';
+      }
+    }
+
+    function runDemoPhotoScan() {
+      const matched = matchHiddenArchiveFromOcr('VITI LEGNO TORX 4.5x50 100 PZ');
+      openItemModal({ ...matched, qty: 100, unit: 'pz' });
+    }
+
+    // ==================== ITEM MODAL ====================
+    function updateModalVisualPreview() {
+      const iconId = document.getElementById('item-icon-type').value;
+      const photoData = document.getElementById('item-photo-data').value;
+      const box = document.getElementById('modal-visual-preview');
+      const toggleBtn = document.getElementById('btn-toggle-photo-vec');
+
+      if (photoData) {
+        toggleBtn.classList.remove('hidden');
+        toggleBtn.textContent = modalPreferPhoto ? 'Usa Vettore' : 'Usa Foto';
+      } else {
+        toggleBtn.classList.add('hidden');
+        modalPreferPhoto = false;
+      }
+
+      if (modalPreferPhoto && photoData) {
+        box.innerHTML = `<img src="${photoData}" alt="Foto" class="w-full h-full object-cover rounded-xl" />`;
+      } else {
+        box.innerHTML = getVectorById(iconId);
+      }
+    }
+
+    function togglePhotoVsVector() {
+      modalPreferPhoto = !modalPreferPhoto;
+      updateModalVisualPreview();
+    }
+
+    function onItemNameInput() {
+      if (document.getElementById('item-id').value) return;
+      const name = document.getElementById('item-name').value;
+      if (!modalPreferPhoto) {
+        document.getElementById('item-icon-type').value = detectIconIdFromText(name);
+      }
+      updateModalVisualPreview();
+    }
+
+    function openItemModal(itemOrId = null) {
+      const item = typeof itemOrId === 'string'
+        ? state.items.find(p => p.id === itemOrId) || null
+        : itemOrId;
+
+      const isEdit = Boolean(item && item.id);
+      document.getElementById('item-modal-title').textContent = isEdit ? 'Modifica Articolo' : 'Completa Dati in Garage';
+      document.getElementById('item-id').value = isEdit ? item.id : '';
+      document.getElementById('item-name').value = item ? (item.name || '') : '';
+      document.getElementById('item-size').value = item ? (item.size || '') : '';
+      document.getElementById('item-zone').value = item && item.zone ? item.zone : 'Cassetto Viti';
+      document.getElementById('item-qty').value = item && item.qty !== undefined ? item.qty : 1;
+      document.getElementById('item-unit').value = item && item.unit ? item.unit : 'pz';
+      document.getElementById('item-min-qty').value = item && item.minQty !== undefined ? item.minQty : 0;
+      document.getElementById('item-brand').value = item ? (item.brand || '') : '';
+      document.getElementById('item-photo-data').value = item && item.photo ? item.photo : '';
+      modalPreferPhoto = Boolean(item && item.preferPhoto && item.photo);
+
+      const guessedIcon = (item && item.icon) ? item.icon : detectIconIdFromText(item ? item.name : '');
+      document.getElementById('item-icon-type').value = guessedIcon;
+      document.getElementById('btn-delete-item').classList.toggle('hidden', !isEdit);
+
+      updateModalVisualPreview();
+      document.getElementById('item-modal').classList.remove('hidden');
+    }
+
+    function saveItemForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('item-id').value;
+      const payload = {
+        id: id || 'gr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        name: document.getElementById('item-name').value.trim(),
+        icon: document.getElementById('item-icon-type').value,
+        size: document.getElementById('item-size').value.trim(),
+        zone: document.getElementById('item-zone').value,
+        qty: parseInt(document.getElementById('item-qty').value, 10) || 0,
+        unit: document.getElementById('item-unit').value,
+        minQty: parseInt(document.getElementById('item-min-qty').value, 10) || 0,
+        brand: document.getElementById('item-brand').value.trim(),
+        photo: document.getElementById('item-photo-data').value || '',
+        preferPhoto: Boolean(modalPreferPhoto && document.getElementById('item-photo-data').value),
+        updatedAt: Date.now()
+      };
+
+      if (id) {
+        const idx = state.items.findIndex(i => i.id === id);
+        if (idx !== -1) state.items[idx] = payload;
+      } else {
+        state.items.unshift(payload);
+      }
+
+      saveState();
+      closeModal('item-modal');
+      switchTab('inventory');
+      showToast(state.familyCode ? 'Salvato e sincronizzato!' : 'Salvato nel garage!');
+    }
+
+    function deleteCurrentItem() {
+      const id = document.getElementById('item-id').value;
+      if (!id) return;
+      state.deletedIds[id] = Date.now();
+      state.items = state.items.filter(i => i.id !== id);
+      saveState();
+      closeModal('item-modal');
+      renderInventory();
+      showToast('Articolo rimosso');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // ==================== SHOPPING LIST ====================
+    function addShoppingItem(e) {
+      e.preventDefault();
+      const input = document.getElementById('shopping-input');
+      const name = input.value.trim();
+      if (!name) return;
+      state.shopping.unshift({
+        id: 'sh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        name,
+        icon: detectIconIdFromText(name),
+        checked: false,
+        updatedAt: Date.now()
+      });
+      input.value = '';
+      saveState();
+      renderShopping();
+    }
+
+    function toggleStoreMode() {
+      storeMode = !storeMode;
+      const btn = document.getElementById('btn-store-mode');
+      btn.className = storeMode
+        ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm transition'
+        : 'px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 transition';
+      renderShopping();
+    }
+
+    function toggleShoppingCheck(id) {
+      const item = state.shopping.find(i => i.id === id);
+      if (item) {
+        item.checked = !item.checked;
+        item.updatedAt = Date.now();
+        saveState();
+        renderShopping();
+      }
+    }
+
+    function moveCheckedToInventory() {
+      const checked = state.shopping.filter(i => i.checked);
+      if (!checked.length) return;
+      const now = Date.now();
+      checked.forEach(item => {
+        state.items.unshift({
+          id: 'gr_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          name: item.name,
+          icon: item.icon || detectIconIdFromText(item.name),
+          size: '',
+          zone: 'Banco Lavoro',
+          qty: 1,
+          unit: 'pz',
+          minQty: 0,
+          brand: '',
+          photo: '',
+          preferPhoto: false,
+          updatedAt: now
+        });
+        state.deletedIds[item.id] = now;
+      });
+      state.shopping = state.shopping.filter(i => !i.checked);
+      saveState();
+      renderShopping();
+      showToast(`${checked.length} articoli spostati nel Garage!`);
+    }
+
+    function clearCheckedShopping() {
+      const now = Date.now();
+      state.shopping.filter(i => i.checked).forEach(i => { state.deletedIds[i.id] = now; });
+      state.shopping = state.shopping.filter(i => !i.checked);
+      saveState();
+      renderShopping();
+    }
+
+    function renderShopping() {
+      const toBuy = state.shopping.filter(i => !i.checked);
+      const checked = state.shopping.filter(i => i.checked);
+      document.getElementById('shopping-subtitle').textContent = `${toBuy.length} da comprare`;
+
+      const checkedBar = document.getElementById('shopping-checked-bar');
+      checkedBar.classList.toggle('hidden', checked.length === 0);
+      document.getElementById('shopping-checked-label').textContent = `${checked.length} nel carrello`;
+
+      const container = document.getElementById('shopping-list');
+      const empty = document.getElementById('shopping-empty');
+
+      if (state.shopping.length === 0) {
+        container.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      const sorted = [...state.shopping].sort((a, b) => (a.checked === b.checked ? 0 : a.checked ? 1 : -1));
+      container.innerHTML = sorted.map(item => `
+        <div onclick="toggleShoppingCheck('${item.id}')" class="cursor-pointer ${storeMode ? 'p-4' : 'p-3'} rounded-2xl border ${item.checked ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-white border-slate-200 shadow-xs'} flex items-center gap-3 transition">
+          <div class="w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 ${item.checked ? 'bg-orange-600 border-orange-600 text-white' : 'border-slate-300'}">
+            ${item.checked ? '✓' : ''}
+          </div>
+          <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 p-1 shrink-0">
+            ${getVectorById(item.icon || detectIconIdFromText(item.name))}
+          </div>
+          <p class="${storeMode ? 'text-base' : 'text-sm'} font-bold ${item.checked ? 'line-through text-slate-500' : 'text-slate-900'} truncate">${escapeHtml(item.name)}</p>
+        </div>
+      `).join('');
+    }
+
+    // ==================== BACKUP & UTILS ====================
+    function exportBackupJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `garagescan-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup JSON scaricato');
+    }
+
+    function exportInventoryCSV() {
+      const rows = [['Nome', 'Misura', 'Zona_Garage', 'Quantita', 'Unita', 'Scorta_Minima', 'Note']];
+      state.items.forEach(i => rows.push([i.name, i.size || '', i.zone || '', i.qty, i.unit, i.minQty || 0, i.brand || '']));
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('
+');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `garagescan-inventario-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('CSV Inventario scaricato');
+    }
+
+    function importBackupJSON(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (parsed && Array.isArray(parsed.items)) {
+            state.items = parsed.items || [];
+            state.shopping = parsed.shopping || [];
+            saveState();
+            renderInventory();
+            showToast('Backup ripristinato!');
+          } else {
+            showToast('File JSON non valido');
+          }
+        } catch (err) {
+          showToast('Errore durante l'importazione');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function clearAllData() {
+      if (!confirm('Cancellare tutti gli articoli salvati localmente?')) return;
+      const keepFamily = state.familyCode;
+      state = { items: [], shopping: [], deletedIds: {}, familyCode: keepFamily, updatedAt: Date.now() };
+      saveState(false);
+      renderInventory();
+      showToast('Dati locali cancellati');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function setupAppleIcon() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 180;
+        canvas.height = 180;
+        const ctx = canvas.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 180, 180);
+        grad.addColorStop(0, '#ea580c');
+        grad.addColorStop(1, '#1e293b');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 180, 180);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(44, 74, 92, 68, 12);
+        ctx.fill();
+        document.getElementById('apple-touch-icon-link').href = canvas.toDataURL('image/png');
+      } catch (e) {}
+    }
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // Boot
+    setupSmartInstall();
+    loadState();
+    setupAppleIcon();
+    updateBadges();
+    renderInventory();
+  </script>
+</body>
+</html>
