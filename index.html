@@ -57,9 +57,26 @@
       transform: scale(1.03);
       pointer-events: none;
     }
+
+    @keyframes voicePulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.55); }
+      50% { transform: scale(1.07); box-shadow: 0 0 0 18px rgba(234, 88, 12, 0); }
+    }
+    .voice-orb-listening {
+      animation: voicePulse 1.4s ease-in-out infinite;
+    }
+    @keyframes eqBar {
+      0%, 100% { height: 8px; }
+      50% { height: 26px; }
+    }
+    .eq-bar { animation: eqBar 0.7s ease-in-out infinite; }
+    .eq-bar:nth-child(2) { animation-delay: 0.15s; }
+    .eq-bar:nth-child(3) { animation-delay: 0.3s; }
+    .eq-bar:nth-child(4) { animation-delay: 0.12s; }
+    .eq-bar:nth-child(5) { animation-delay: 0.25s; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-900 min-h-screen pb-10">
+<body class="bg-slate-100 text-slate-900 min-h-screen pb-24">
 
   <!-- ==================== SPLASH SCREEN GARAGE (5.2s) ==================== -->
   <div id="garage-splash-screen" class="fixed inset-0 z-50 bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 flex flex-col items-center justify-center p-6 transition-all duration-500">
@@ -263,6 +280,22 @@
           <h2 class="text-base font-extrabold text-slate-900">Fotografa o Aggiungi al Garage</h2>
           <p class="text-xs text-slate-500">L'archivio interno da 1.140+ voci riconosce nome, misura e vettore; tu completi posizione e quantità.</p>
         </div>
+
+        <button type="button" onclick="openVoiceAssistant(true)" class="w-full p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-orange-950 hover:from-slate-800 hover:to-orange-900 text-white shadow-md flex items-center justify-between gap-3 transition active:scale-[0.99]">
+          <div class="flex items-center gap-3 text-left">
+            <div class="w-11 h-11 rounded-2xl bg-orange-600 flex items-center justify-center shrink-0 shadow-inner">
+              <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-extrabold text-white">Detta all'Assistente GarageScan</span>
+                <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 border border-orange-400/30">Voce</span>
+              </div>
+              <p class="text-[11px] text-slate-300 mt-0.5">Es. "Aggiungi 50 viti Torx 4 per 40 nel cassetto viti"</p>
+            </div>
+          </div>
+          <span class="text-xs font-extrabold text-orange-400 shrink-0">Parla →</span>
+        </button>
 
         <div class="grid grid-cols-2 gap-2.5">
           <label class="cursor-pointer flex flex-col items-center justify-center p-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-center shadow-sm transition">
@@ -536,6 +569,89 @@
         <p><strong>2.</strong> Seleziona <strong>"Installa app"</strong> o <strong>"Aggiungi a schermata Home"</strong>.</p>
       </div>
       <button onclick="closeModal('install-guide-modal')" class="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold">Ho capito</button>
+    </div>
+  </div>
+
+  <!-- ==================== FLOATING ASSISTENTE VOCALE BUTTON ==================== -->
+  <button type="button" onclick="openVoiceAssistant(true)" aria-label="Assistente Vocale GarageScan" class="fixed bottom-5 right-4 z-40 flex items-center gap-2 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-r from-slate-900 to-orange-600 hover:from-slate-800 hover:to-orange-500 active:scale-95 text-white shadow-xl border border-white/15 transition">
+    <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+      <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+    </span>
+    <span class="text-xs font-extrabold tracking-tight">Parla</span>
+  </button>
+
+  <!-- ==================== MODAL: ASSISTENTE VOCALE GARAGESCAN ==================== -->
+  <div id="voice-assistant-modal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 text-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-700/80 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+          <h3 class="text-sm font-extrabold tracking-tight text-white">Assistente Vocale GarageScan</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-voice-tts-toggle" onclick="toggleVoiceTts()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-orange-300 transition">
+            🔊 Voce ON
+          </button>
+          <button type="button" onclick="closeVoiceAssistant()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 font-bold">✕</button>
+        </div>
+      </div>
+
+      <!-- Siri/Alexa style listening orb -->
+      <div class="py-3 flex flex-col items-center justify-center text-center space-y-3">
+        <button type="button" id="voice-mic-orb" onclick="toggleVoiceListening()" class="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center shadow-lg border-4 border-orange-300/30 transition cursor-pointer">
+          <svg id="voice-mic-icon" class="w-9 h-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        </button>
+
+        <div id="voice-eq-bars" class="hidden items-center justify-center gap-1 h-7">
+          <span class="eq-bar w-1.5 bg-orange-400 rounded-full"></span>
+          <span class="eq-bar w-1.5 bg-orange-400 rounded-full"></span>
+          <span class="eq-bar w-1.5 bg-orange-400 rounded-full"></span>
+          <span class="eq-bar w-1.5 bg-orange-400 rounded-full"></span>
+          <span class="eq-bar w-1.5 bg-orange-400 rounded-full"></span>
+        </div>
+
+        <div>
+          <p id="voice-status-label" class="text-xs font-extrabold text-orange-300">Tocca il microfono e parla</p>
+          <p id="voice-transcript-live" class="text-sm font-semibold text-white mt-1 min-h-[22px] px-2">«...»</p>
+        </div>
+      </div>
+
+      <!-- Assistant Response Card -->
+      <div id="voice-response-card" class="hidden p-3.5 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-2.5">
+        <div class="flex items-start gap-2.5">
+          <div id="voice-res-icon" class="w-10 h-10 rounded-xl bg-white p-1 shrink-0 hidden"></div>
+          <div class="min-w-0 flex-1">
+            <span id="voice-res-badge" class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Eseguito</span>
+            <p id="voice-res-text" class="text-xs font-bold text-white mt-1 leading-relaxed"></p>
+          </div>
+        </div>
+        <div id="voice-res-actions" class="hidden flex gap-2 pt-1"></div>
+      </div>
+
+      <!-- Quick command examples -->
+      <div class="space-y-1.5">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Esempi di comandi vocali (tocca per provare)</p>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="runSimulatedVoice('Aggiungi 50 viti Torx 4 per 40 nel cassetto viti')" class="text-left px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] text-slate-200 transition">
+            "Aggiungi 50 viti Torx 4x40 nel cassetto viti"
+          </button>
+          <button type="button" onclick="runSimulatedVoice('Ho usato 5 viti Torx')" class="text-left px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] text-slate-200 transition">
+            "Ho usato 5 viti Torx"
+          </button>
+          <button type="button" onclick="runSimulatedVoice('Dove sono le viti Torx?')" class="text-left px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] text-slate-200 transition">
+            "Dove sono le viti Torx?"
+          </button>
+          <button type="button" onclick="runSimulatedVoice('Devo comprare spray WD-40 e nastro isolante')" class="text-left px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] text-slate-200 transition">
+            "Devo comprare spray WD-40"
+          </button>
+        </div>
+      </div>
+
+      <!-- Manual text fallback -->
+      <form onsubmit="submitTypedVoiceCommand(event)" class="flex gap-2 pt-1 border-t border-slate-800">
+        <input id="voice-typed-input" type="text" placeholder="Oppure scrivi il comando qui..." class="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+        <button type="submit" class="px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-extrabold">Invia</button>
+      </form>
     </div>
   </div>
 
@@ -1600,6 +1716,362 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
       });
+    }
+
+
+    // ==================== ASSISTENTE VOCALE GARAGESCAN (SpeechRecognition + TTS) ====================
+    let voiceRecognition = null;
+    let isVoiceListening = false;
+    let voiceTtsEnabled = safeStorage.get('garagescan_voice_tts') !== '0';
+    let lastVoiceItemId = null;
+
+    function updateVoiceTtsButton() {
+      const btn = document.getElementById('btn-voice-tts-toggle');
+      if (!btn) return;
+      btn.textContent = voiceTtsEnabled ? '🔊 Voce ON' : '🔇 Voce OFF';
+      btn.className = voiceTtsEnabled
+        ? 'px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-orange-300 transition'
+        : 'px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/15 text-[11px] font-bold text-slate-400 transition';
+    }
+
+    function toggleVoiceTts() {
+      voiceTtsEnabled = !voiceTtsEnabled;
+      safeStorage.set('garagescan_voice_tts', voiceTtsEnabled ? '1' : '0');
+      updateVoiceTtsButton();
+      if (!voiceTtsEnabled && 'speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+    }
+
+    function speakAssistantReply(text) {
+      if (!voiceTtsEnabled || !('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'it-IT';
+        utter.rate = 1.05;
+        utter.pitch = 1.0;
+        window.speechSynthesis.speak(utter);
+      } catch (e) {}
+    }
+
+    function setVoiceListeningUI(listening, statusMsg) {
+      isVoiceListening = listening;
+      const orb = document.getElementById('voice-mic-orb');
+      const eq = document.getElementById('voice-eq-bars');
+      const lbl = document.getElementById('voice-status-label');
+      if (orb) orb.classList.toggle('voice-orb-listening', listening);
+      if (eq) {
+        eq.classList.toggle('hidden', !listening);
+        eq.classList.toggle('flex', listening);
+      }
+      if (lbl && statusMsg) lbl.textContent = statusMsg;
+    }
+
+    function openVoiceAssistant(autoStart = true) {
+      updateVoiceTtsButton();
+      document.getElementById('voice-assistant-modal').classList.remove('hidden');
+      document.getElementById('voice-transcript-live').textContent = '«Parla ora...»';
+      if (autoStart) startVoiceListening();
+    }
+
+    function closeVoiceAssistant() {
+      stopVoiceListening();
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+      document.getElementById('voice-assistant-modal').classList.add('hidden');
+    }
+
+    function toggleVoiceListening() {
+      if (isVoiceListening) {
+        stopVoiceListening();
+      } else {
+        startVoiceListening();
+      }
+    }
+
+    function stopVoiceListening() {
+      if (voiceRecognition) {
+        try { voiceRecognition.stop(); } catch (e) {}
+      }
+      setVoiceListeningUI(false, 'Tocca il microfono per parlare di nuovo');
+    }
+
+    function startVoiceListening() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        setVoiceListeningUI(false, 'Microfono non supportato su questo browser: scrivi sotto');
+        return;
+      }
+
+      if (voiceRecognition) {
+        try { voiceRecognition.abort(); } catch (e) {}
+      }
+
+      let capturedTranscript = '';
+      voiceRecognition = new SpeechRec();
+      voiceRecognition.lang = 'it-IT';
+      voiceRecognition.interimResults = true;
+      voiceRecognition.maxAlternatives = 1;
+
+      voiceRecognition.onstart = () => {
+        setVoiceListeningUI(true, 'Ti ascolto... dì cosa fare in garage');
+        document.getElementById('voice-transcript-live').textContent = '«...»';
+      };
+
+      voiceRecognition.onresult = (event) => {
+        let interim = '';
+        let finalStr = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const piece = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalStr += piece;
+          else interim += piece;
+        }
+        const shown = (finalStr || interim).trim();
+        if (shown) {
+          capturedTranscript = shown;
+          document.getElementById('voice-transcript-live').textContent = `«${shown}»`;
+        }
+      };
+
+      voiceRecognition.onerror = (event) => {
+        const msg = event.error === 'not-allowed'
+          ? 'Permesso microfono negato: abilitalo nel browser'
+          : 'Non ho sentito bene, tocca il microfono e riprova';
+        setVoiceListeningUI(false, msg);
+      };
+
+      voiceRecognition.onend = () => {
+        setVoiceListeningUI(false, 'Tocca il microfono per parlare di nuovo');
+        if (capturedTranscript) {
+          processVoiceCommand(capturedTranscript);
+        }
+      };
+
+      try {
+        voiceRecognition.start();
+      } catch (e) {
+        setVoiceListeningUI(false, 'Tocca il microfono per avviare');
+      }
+    }
+
+    function runSimulatedVoice(cmd) {
+      stopVoiceListening();
+      document.getElementById('voice-transcript-live').textContent = `«${cmd}»`;
+      processVoiceCommand(cmd);
+    }
+
+    function submitTypedVoiceCommand(e) {
+      e.preventDefault();
+      const input = document.getElementById('voice-typed-input');
+      const cmd = (input.value || '').trim();
+      if (!cmd) return;
+      input.value = '';
+      runSimulatedVoice(cmd);
+    }
+
+    function parseItalianSpokenText(raw) {
+      let text = (raw || '').trim();
+      const wordNums = {
+        'un': 1, 'uno': 1, 'una': 1, 'due': 2, 'tre': 3, 'quattro': 4, 'cinque': 5,
+        'sei': 6, 'sette': 7, 'otto': 8, 'nove': 9, 'dieci': 10, 'undici': 11, 'dodici': 12,
+        'quindici': 15, 'venti': 20, 'trenta': 30, 'quaranta': 40, 'cinquanta': 50,
+        'sessanta': 60, 'settanta': 70, 'ottanta': 80, 'novanta': 90, 'cento': 100, 'duecento': 200
+      };
+
+      // Normalize spoken dimensions like "4 per 40" -> "4x40"
+      text = text.replace(/(\d+(?:[.,]\d+)?)\s*(?:per|x|×)\s*(\d+(?:[.,]\d+)?)/gi, '$1x$2');
+
+      // Extract zone
+      let zone = '';
+      const lower = text.toLowerCase();
+      if (lower.includes('cassetto')) zone = 'Cassetto Viti';
+      else if (lower.includes('banco')) zone = 'Banco Lavoro';
+      else if (lower.includes('parete')) zone = 'Parete Attrezzi';
+      else if (lower.includes('valigett')) zone = 'Valigette';
+      else if (lower.includes('scaffal')) zone = 'Scaffale';
+
+      // Extract size
+      const sizeMatch = text.match(/(\d+(?:[.,]\d+)?x\d+(?:[.,]\d+)?(?:\s*mm)?|[mM]\d+(?:x\d+)?|\d+\s*mm)/i);
+      const size = sizeMatch ? sizeMatch[1].replace(/\s+/g, '') : '';
+
+      // Extract quantity (first standalone number or Italian number word, excluding size)
+      let qty = null;
+      const withoutSize = size ? text.replace(sizeMatch[0], ' ') : text;
+      const numDigitMatch = withoutSize.match(/(\d{1,4})/);
+      if (numDigitMatch) {
+        qty = parseInt(numDigitMatch[1], 10);
+      } else {
+        const tokens = withoutSize.toLowerCase().split(/\s+/);
+        for (const tk of tokens) {
+          if (wordNums[tk] !== undefined) {
+            qty = wordNums[tk];
+            break;
+          }
+        }
+      }
+
+      // Extract unit
+      let unit = 'pz';
+      if (/scatol[ae]/i.test(lower)) unit = 'scatole';
+      else if (/confezion[ei]/i.test(lower)) unit = 'conf';
+      else if (/metr[io]/i.test(lower)) unit = 'm';
+      else if (/set/i.test(lower)) unit = 'set';
+
+      return { text, lower, qty, unit, size, zone };
+    }
+
+    function cleanSpokenItemSubject(rawText, parsed) {
+      let s = rawText;
+      // Remove command prefixes
+      s = s.replace(/^(?:ehi\s+garagescan\s+|garagescan\s+|ok\s+garage\s+)?(?:aggiungi|inserisci|salva|metti|ho\s+comprato|ho\s+preso|ho\s+usato|togli|scala|scarica|consumato|dove\s+sono|dov['’]è|quanti|quante|c['’]è|ci\s+sono|devo\s+comprare|compra|manca|mancano|aggiungi\s+alla\s+lista|metti\s+in\s+lista)/i, '').trim();
+      // Remove zone phrases
+      s = s.replace(/(?:nel|nello|nella|sul|sullo|sulla|in|al)\s+(?:cassetto(?:\s+viti)?|banco(?:\s+lavoro)?|parete(?:\s+attrezzi)?|valigett[ae]|scaffale|garage)/gi, ' ');
+      // Remove unit words
+      s = s.replace(/(?:pezzi|pezzo|pz|scatole|scatola|confezioni|confezione|metri|metro|set)\s+(?:di\s+)?/gi, ' ');
+      // Remove leading quantity word or digit
+      if (parsed.qty !== null) {
+        s = s.replace(new RegExp('^\s*(?:' + parsed.qty + '|un|uno|una|due|tre|quattro|cinque|sei|sette|otto|nove|dieci|venti|trenta|quaranta|cinquanta|cento)\b\s*(?:di\s+)?', 'i'), '');
+      }
+      return s.replace(/\s+/g, ' ').replace(/[?.!]+$/, '').trim();
+    }
+
+    function showAssistantResponse(badge, replyText, iconId = '', actionsHtml = '') {
+      const card = document.getElementById('voice-response-card');
+      const iconBox = document.getElementById('voice-res-icon');
+      const actionsBox = document.getElementById('voice-res-actions');
+      document.getElementById('voice-res-badge').textContent = badge;
+      document.getElementById('voice-res-text').textContent = replyText;
+
+      if (iconId) {
+        iconBox.innerHTML = getVectorById(iconId);
+        iconBox.classList.remove('hidden');
+      } else {
+        iconBox.classList.add('hidden');
+      }
+
+      if (actionsHtml) {
+        actionsBox.innerHTML = actionsHtml;
+        actionsBox.classList.remove('hidden');
+      } else {
+        actionsBox.classList.add('hidden');
+      }
+
+      card.classList.remove('hidden');
+      speakAssistantReply(replyText);
+    }
+
+    function processVoiceCommand(rawCommand) {
+      const parsed = parseItalianSpokenText(rawCommand);
+      const l = parsed.lower;
+      const subject = cleanSpokenItemSubject(rawCommand, parsed);
+
+      // 1. INTENT: SHOPPING LIST ("devo comprare", "compra", "manca", "lista")
+      if (/(?:devo\s+comprare|compra|comprare|manca|mancano|in\s+lista|alla\s+lista)/.test(l)) {
+        const itemLabel = subject || 'Articolo ferramenta';
+        const parts = itemLabel.split(/\s+e\s+/i).map(p => p.trim()).filter(Boolean);
+        let firstIcon = 'toolbox';
+        parts.forEach((p, idx) => {
+          const cap = p.charAt(0).toUpperCase() + p.slice(1);
+          const ic = detectIconIdFromText(cap);
+          if (idx === 0) firstIcon = ic;
+          state.shopping.unshift({
+            id: 'sh_' + Date.now() + '_' + idx,
+            name: cap,
+            icon: ic,
+            checked: false,
+            updatedAt: Date.now()
+          });
+        });
+        saveState();
+        if (currentTab === 'shopping') renderShopping();
+        const reply = parts.length > 1
+          ? `Ho aggiunto ${parts.length} articoli alla lista Da Comprare.`
+          : `Ho aggiunto ${parts[0]} alla lista Da Comprare.`;
+        showAssistantResponse('Lista Spesa', reply, firstIcon, `<button type="button" onclick="closeVoiceAssistant();switchTab('shopping')" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-[11px] font-bold">Vedi Da Comprare</button>`);
+        return;
+      }
+
+      // 2. INTENT: QUERY / FIND ("dove sono", "dov'è", "quanti", "quante", "c'è", "ci sono")
+      if (/^(?:dove|dov['’]è|quanti|quante|c['’]è|ci\s+sono|che\s+scorta)/.test(l)) {
+        const queryTerm = subject.toLowerCase();
+        const found = state.items.filter(it => `${it.name} ${it.size || ''} ${it.brand || ''}`.toLowerCase().includes(queryTerm));
+        if (found.length === 0) {
+          const reply = `Non ho trovato "${subject}" nel tuo garage.`;
+          showAssistantResponse('Ricerca Garage', reply, 'toolbox', `<button type="button" onclick="closeVoiceAssistant();openItemModal({name:'${escapeHtml(subject)}'})" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-[11px] font-bold">+ Aggiungi ora</button>`);
+        } else {
+          const top = found[0];
+          const reply = found.length === 1
+            ? `Hai ${top.qty} ${top.unit || 'pz'} di ${top.name}${top.size ? ' ' + top.size : ''} in ${top.zone}.`
+            : `Ho trovato ${found.length} articoli: il primo è ${top.name} (${top.qty} ${top.unit || 'pz'}) in ${top.zone}.`;
+          document.getElementById('inv-search').value = subject;
+          switchTab('inventory');
+          showAssistantResponse('Trovato in Garage', reply, top.icon || 'toolbox', `<button type="button" onclick="closeVoiceAssistant()" class="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-[11px] font-bold">Mostra risultati</button>`);
+        }
+        return;
+      }
+
+      // 3. INTENT: CONSUME / SUBTRACT ("ho usato", "togli", "scala", "scarica", "consumato")
+      if (/(?:ho\s+usato|usato|togli|scala|scarica|consumato|preso)/.test(l)) {
+        const usedQty = parsed.qty || 1;
+        const queryTerm = subject.toLowerCase();
+        const target = state.items.find(it => `${it.name} ${it.size || ''}`.toLowerCase().includes(queryTerm));
+        if (!target) {
+          const reply = `Non ho trovato "${subject}" nel garage per scalarlo.`;
+          showAssistantResponse('Non trovato', reply, 'toolbox');
+          return;
+        }
+        target.qty = Math.max(0, Number(target.qty) - usedQty);
+        target.updatedAt = Date.now();
+        saveState();
+        if (currentTab === 'inventory') renderInventory();
+        const reply = target.qty === 0
+          ? `Ho scalato ${usedQty} ${target.unit || 'pz'} di ${target.name}. Ora è finito! Vuoi metterlo in Da Comprare?`
+          : `Fatto! Scalati ${usedQty} ${target.unit || 'pz'} di ${target.name}. Te ne restano ${target.qty}.`;
+        const extraBtn = target.qty === 0
+          ? `<button type="button" onclick="state.shopping.unshift({id:'sh_'+Date.now(),name:'${escapeHtml(target.name)}',icon:'${target.icon || 'toolbox'}',checked:false,updatedAt:Date.now()});saveState();closeVoiceAssistant();switchTab('shopping')" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-[11px] font-bold">Metti in Da Comprare</button>`
+          : `<button type="button" onclick="closeVoiceAssistant();switchTab('inventory')" class="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-[11px] font-bold">Vedi Garage</button>`;
+        showAssistantResponse('Scorta Aggiornata', reply, target.icon || 'toolbox', extraBtn);
+        return;
+      }
+
+      // 4. DEFAULT / ADD TO INVENTORY ("aggiungi...", or spoken item like "50 viti torx 4x40 nel cassetto viti")
+      const matched = matchHiddenArchiveFromOcr(subject || rawCommand);
+      const finalName = matched.name !== 'Articolo Fotografato' ? matched.name : (subject ? subject.charAt(0).toUpperCase() + subject.slice(1) : 'Articolo Garage');
+      const finalQty = parsed.qty !== null ? parsed.qty : 1;
+      const finalSize = parsed.size || matched.size || '';
+      const finalZone = parsed.zone || 'Cassetto Viti';
+      const finalIcon = matched.icon || detectIconIdFromText(finalName);
+
+      const newItem = {
+        id: 'gr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        name: finalName,
+        icon: finalIcon,
+        size: finalSize,
+        zone: finalZone,
+        qty: finalQty,
+        unit: parsed.unit || 'pz',
+        minQty: 0,
+        brand: '',
+        photo: '',
+        preferPhoto: false,
+        updatedAt: Date.now()
+      };
+
+      state.items.unshift(newItem);
+      lastVoiceItemId = newItem.id;
+      saveState();
+      if (currentTab === 'inventory') renderInventory();
+
+      const reply = `Fatto! Ho salvato ${finalQty} ${newItem.unit} di ${finalName}${finalSize ? ' ' + finalSize : ''} in ${finalZone}.`;
+      showAssistantResponse(
+        'Salvato nel Garage',
+        reply,
+        finalIcon,
+        `<button type="button" onclick="closeVoiceAssistant();openItemModal('${newItem.id}')" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-bold">Modifica dettagli</button>
+         <button type="button" onclick="closeVoiceAssistant();switchTab('inventory')" class="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-bold">Vedi nel Garage</button>`
+      );
     }
 
     // Boot
