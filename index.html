@@ -597,16 +597,27 @@
   <!-- ==================== MODAL: ASSISTENTE VOCALE GARAGESCAN ==================== -->
   <div id="voice-assistant-modal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="bg-slate-900 text-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl border border-slate-700/80 max-h-[92vh] overflow-y-auto">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
-          <h3 class="text-sm font-extrabold tracking-tight text-white">Assistente Vocale GarageScan</h3>
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+            <h3 class="text-sm font-extrabold tracking-tight text-white">Assistente Vocale GarageScan</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-voice-tts-toggle" onclick="toggleVoiceTts()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-orange-300 transition">
+              🔊 Voce ON
+            </button>
+            <button type="button" onclick="closeVoiceAssistant()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 font-bold">✕</button>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" id="btn-voice-tts-toggle" onclick="toggleVoiceTts()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-bold text-orange-300 transition">
-            🔊 Voce ON
+        <div id="voice-selector-row" class="flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 rounded-xl px-2.5 py-1.5">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">Timbro:</span>
+          <select id="voice-select-dropdown" onchange="onSelectVoiceChange()" class="flex-1 min-w-0 bg-transparent text-[11px] font-semibold text-slate-100 focus:outline-none truncate">
+            <option value="AUTO" class="bg-slate-900">Auto (Migliore voce naturale)</option>
+          </select>
+          <button type="button" onclick="previewSelectedVoice()" class="px-2 py-0.5 rounded-lg bg-orange-600/80 hover:bg-orange-500 text-[10px] font-extrabold text-white shrink-0">
+            Prova
           </button>
-          <button type="button" onclick="closeVoiceAssistant()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 font-bold">✕</button>
         </div>
       </div>
 
@@ -1733,11 +1744,93 @@
     }
 
 
-    // ==================== ASSISTENTE VOCALE GARAGESCAN (SpeechRecognition + TTS) ====================
+    // ==================== ASSISTENTE VOCALE GARAGESCAN (SpeechRecognition + Natural Neural TTS) ====================
     let voiceRecognition = null;
     let isVoiceListening = false;
     let voiceTtsEnabled = safeStorage.get('garagescan_voice_tts') !== '0';
+    let selectedVoiceURI = safeStorage.get('garagescan_voice_uri') || 'AUTO';
+    let cachedItalianVoices = [];
     let lastVoiceItemId = null;
+
+    function scoreItalianVoice(v) {
+      const name = (v.name || '').toLowerCase();
+      const lang = (v.lang || '').toLowerCase();
+      if (!lang.startsWith('it')) return -100;
+      let score = 10;
+      if (name.includes('natural') || name.includes('neural')) score += 60;
+      if (name.includes('online')) score += 35;
+      if (name.includes('enhanced') || name.includes('premium') || name.includes('migliorata')) score += 45;
+      if (name.includes('elsa') || name.includes('isabella') || name.includes('giuseppe') || name.includes('diego')) score += 40;
+      if (name.includes('federica') || name.includes('paola') || name.includes('luca') || name.includes('alice')) score += 30;
+      if (name.includes('siri')) score += 35;
+      if (name.includes('google')) score += 28;
+      if (v.localService === false) score += 12;
+      if (name.includes('espeak') || name.includes('compact') || name.includes('eloquence')) score -= 40;
+      return score;
+    }
+
+    function refreshItalianVoicesList() {
+      if (!('speechSynthesis' in window)) return [];
+      const all = window.speechSynthesis.getVoices() || [];
+      const itVoices = all
+        .filter(v => (v.lang || '').toLowerCase().startsWith('it'))
+        .sort((a, b) => scoreItalianVoice(b) - scoreItalianVoice(a));
+      cachedItalianVoices = itVoices;
+
+      const dropdown = document.getElementById('voice-select-dropdown');
+      if (dropdown) {
+        const bestName = itVoices[0] ? itVoices[0].name.replace(/Microsoft |Google |Apple /g, '') : 'Predefinita';
+        const optionsHtml = [`<option value="AUTO" class="bg-slate-900">Auto (${escapeHtml(bestName)})</option>`];
+        itVoices.forEach(v => {
+          const cleanLabel = v.name.replace(/Microsoft |Google /g, '');
+          const sel = selectedVoiceURI === v.voiceURI ? 'selected' : '';
+          optionsHtml.push(`<option value="${escapeHtml(v.voiceURI)}" ${sel} class="bg-slate-900">${escapeHtml(cleanLabel)}</option>`);
+        });
+        dropdown.innerHTML = optionsHtml.join('');
+      }
+      return itVoices;
+    }
+
+    if ('speechSynthesis' in window) {
+      refreshItalianVoicesList();
+      window.speechSynthesis.onvoiceschanged = refreshItalianVoicesList;
+    }
+
+    function onSelectVoiceChange() {
+      const dropdown = document.getElementById('voice-select-dropdown');
+      if (!dropdown) return;
+      selectedVoiceURI = dropdown.value || 'AUTO';
+      safeStorage.set('garagescan_voice_uri', selectedVoiceURI);
+      previewSelectedVoice();
+    }
+
+    function previewSelectedVoice() {
+      speakAssistantReply('Ciao! Sono pronto ad aiutarti nel tuo garage.');
+    }
+
+    function getBestItalianVoice() {
+      const voices = cachedItalianVoices.length ? cachedItalianVoices : refreshItalianVoicesList();
+      if (!voices.length) return null;
+      if (selectedVoiceURI && selectedVoiceURI !== 'AUTO') {
+        const chosen = voices.find(v => v.voiceURI === selectedVoiceURI);
+        if (chosen) return chosen;
+      }
+      return voices[0];
+    }
+
+    function humanizeItalianForSpeech(rawText) {
+      let t = String(rawText || '');
+      t = t.replace(/(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)/g, '$1 per $2');
+      t = t.replace(/pz/gi, 'pezzi');
+      t = t.replace(/conf\.?/gi, 'confezioni');
+      t = t.replace(/mm/gi, 'millimetri');
+      t = t.replace(/cm/gi, 'centimetri');
+      t = t.replace(/WD-?40/gi, 'W D 40');
+      t = t.replace(/M(\d+)/g, 'M $1');
+      t = t.replace(/SDS-Plus/gi, 'S D S Plus');
+      t = t.replace(/\s+/g, ' ').trim();
+      return t;
+    }
 
     function updateVoiceTtsButton() {
       const btn = document.getElementById('btn-voice-tts-toggle');
@@ -1761,11 +1854,18 @@
       if (!voiceTtsEnabled || !('speechSynthesis' in window)) return;
       try {
         window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = 'it-IT';
-        utter.rate = 1.05;
-        utter.pitch = 1.0;
-        window.speechSynthesis.speak(utter);
+        const spokenText = humanizeItalianForSpeech(text);
+        const bestVoice = getBestItalianVoice();
+        const clauses = spokenText.split(/(?<=[.!?])\s+/).filter(Boolean);
+        (clauses.length ? clauses : [spokenText]).forEach((clause, idx) => {
+          const utter = new SpeechSynthesisUtterance(clause);
+          utter.lang = 'it-IT';
+          if (bestVoice) utter.voice = bestVoice;
+          utter.rate = idx === 0 ? 0.96 : 0.98;
+          utter.pitch = 1.03;
+          utter.volume = 1.0;
+          window.speechSynthesis.speak(utter);
+        });
       } catch (e) {}
     }
 
@@ -1783,6 +1883,7 @@
     }
 
     function openVoiceAssistant(autoStart = true) {
+      refreshItalianVoicesList();
       updateVoiceTtsButton();
       document.getElementById('voice-assistant-modal').classList.remove('hidden');
       document.getElementById('voice-transcript-live').textContent = '«Parla ora...»';
@@ -2040,9 +2141,10 @@
         target.updatedAt = Date.now();
         saveState();
         if (currentTab === 'inventory') renderInventory();
+        const unitLabel = (target.unit === 'pz' || !target.unit) ? (usedQty === 1 ? 'pezzo' : 'pezzi') : target.unit;
         const reply = target.qty === 0
-          ? `Ho scalato ${usedQty} ${target.unit || 'pz'} di ${target.name}. Ora è finito! Vuoi metterlo in Da Comprare?`
-          : `Fatto! Scalati ${usedQty} ${target.unit || 'pz'} di ${target.name}. Te ne restano ${target.qty}.`;
+          ? `Ho scalato ${usedQty} ${unitLabel} di ${target.name}. Attenzione, ora è finito! Vuoi che lo segni nella lista da comprare?`
+          : `Aggiornato! Ho scalato ${usedQty} ${unitLabel} di ${target.name}. Te ne restano ancora ${target.qty}.`;
         const extraBtn = target.qty === 0
           ? `<button type="button" onclick="state.shopping.unshift({id:'sh_'+Date.now(),name:'${escapeHtml(target.name)}',icon:'${target.icon || 'toolbox'}',checked:false,updatedAt:Date.now()});saveState();closeVoiceAssistant();switchTab('shopping')" class="px-3 py-1.5 rounded-xl bg-orange-600 text-white text-[11px] font-bold">Metti in Da Comprare</button>`
           : `<button type="button" onclick="closeVoiceAssistant();switchTab('inventory')" class="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-[11px] font-bold">Vedi Garage</button>`;
@@ -2078,7 +2180,8 @@
       saveState();
       if (currentTab === 'inventory') renderInventory();
 
-      const reply = `Fatto! Ho salvato ${finalQty} ${newItem.unit} di ${finalName}${finalSize ? ' ' + finalSize : ''} in ${finalZone}.`;
+      const unitSpoken = newItem.unit === 'pz' ? (finalQty === 1 ? 'pezzo' : 'pezzi') : newItem.unit;
+      const reply = `Perfetto! Ho aggiunto ${finalQty} ${unitSpoken} di ${finalName}${finalSize ? ', misura ' + finalSize : ''}, nella zona ${finalZone}.`;
       showAssistantResponse(
         'Salvato nel Garage',
         reply,
